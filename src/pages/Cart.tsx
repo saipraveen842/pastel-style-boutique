@@ -1,49 +1,20 @@
 
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingBag, X, Plus, Minus, ArrowRight, Heart } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import StyleBot from '@/components/StyleBot';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-
-// Mock cart items - this would typically come from a context or state management
-interface CartItem {
-  id: number;
-  name: string;
-  price: number;
-  image: string;
-  quantity: number;
-  size: string;
-  color: string;
-}
+import { useCart } from '@/contexts/CartContext';
 
 const Cart = () => {
   const { toast } = useToast();
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    {
-      id: 1,
-      name: "Floral Summer Dress",
-      price: 59.99,
-      image: "https://images.unsplash.com/photo-1596783074918-c84cb06531ca?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=880&q=80",
-      quantity: 1,
-      size: "M",
-      color: "Pink"
-    },
-    {
-      id: 2,
-      name: "Pastel Sweater",
-      price: 45.99,
-      image: "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=772&q=80",
-      quantity: 1,
-      size: "S",
-      color: "Lavender"
-    }
-  ]);
-  
-  const [promoCode, setPromoCode] = useState('');
-  const [discount, setDiscount] = useState(0);
+  const navigate = useNavigate();
+  const { cartItems, updateQuantity, removeFromCart } = useCart();
+  const [promoCode, setPromoCode] = React.useState('');
+  const [discount, setDiscount] = React.useState(0);
 
   // Calculate subtotal
   const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -51,28 +22,9 @@ const Cart = () => {
   const tax = subtotal * 0.07; // 7% tax
   const total = subtotal + shipping + tax - discount;
 
-  const updateQuantity = (id: number, change: number) => {
-    setCartItems(prevItems => 
-      prevItems.map(item => 
-        item.id === id ? { 
-          ...item, 
-          quantity: Math.max(1, item.quantity + change) 
-        } : item
-      )
-    );
-  };
-
-  const removeItem = (id: number) => {
-    setCartItems(prevItems => prevItems.filter(item => item.id !== id));
-    toast({
-      title: "Item removed",
-      description: "The item has been removed from your cart",
-    });
-  };
-
   const moveToWishlist = (id: number) => {
     // In a real app, this would add to wishlist in the database/state
-    removeItem(id);
+    removeFromCart(id);
     toast({
       title: "Added to wishlist",
       description: "The item has been moved to your wishlist",
@@ -93,6 +45,19 @@ const Cart = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleCheckout = () => {
+    if (cartItems.length === 0) {
+      toast({
+        title: "Empty Cart",
+        description: "Please add items to your cart before checkout",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    navigate('/checkout');
   };
 
   return (
@@ -169,7 +134,7 @@ const Cart = () => {
                               Save for later
                             </button>
                             <button 
-                              onClick={() => removeItem(item.id)}
+                              onClick={() => removeFromCart(item.id)}
                               className="flex items-center text-muted-foreground hover:text-primary-foreground transition-colors"
                             >
                               <X size={14} className="mr-1" />
@@ -240,7 +205,10 @@ const Cart = () => {
                     </p>
                   </div>
                   
-                  <Button className="w-full btn-pastel py-6 mb-4">
+                  <Button 
+                    className="w-full btn-pastel py-6 mb-4"
+                    onClick={handleCheckout}
+                  >
                     Proceed to Checkout
                     <ArrowRight size={16} className="ml-2" />
                   </Button>

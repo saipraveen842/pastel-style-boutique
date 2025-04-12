@@ -2,7 +2,9 @@
 import React from 'react';
 import { Heart, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useCart } from '@/contexts/CartContext';
+import { useToast } from '@/hooks/use-toast';
 
 export interface Product {
   id: number;
@@ -12,15 +14,44 @@ export interface Product {
   category: string;
   isNew?: boolean;
   isFeatured?: boolean;
+  color?: string;
+  size?: string;
 }
 
 interface ProductCardProps {
   product: Product;
-  onAddToCart?: () => void;
-  onBuyNow?: () => void;
 }
 
-const ProductCard = ({ product, onAddToCart, onBuyNow }: ProductCardProps) => {
+const ProductCard = ({ product }: ProductCardProps) => {
+  const { addToCart } = useCart();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    addToCart({
+      ...product,
+      color: product.color || 'Default',
+      size: product.size || 'M',
+    });
+    
+    toast({
+      title: "Added to cart",
+      description: `${product.name} has been added to your cart`
+    });
+  };
+
+  const handleBuyNow = (e: React.MouseEvent) => {
+    e.preventDefault();
+    addToCart({
+      ...product,
+      color: product.color || 'Default',
+      size: product.size || 'M',
+    });
+    
+    navigate('/cart');
+  };
+
   return (
     <div className="product-card group">
       <div className="relative overflow-hidden">
@@ -46,10 +77,7 @@ const ProductCard = ({ product, onAddToCart, onBuyNow }: ProductCardProps) => {
               size="sm" 
               variant="secondary" 
               className="bg-white text-foreground hover:bg-pastel-pink hover:text-primary-foreground"
-              onClick={(e) => {
-                e.preventDefault();
-                onAddToCart && onAddToCart();
-              }}
+              onClick={handleAddToCart}
             >
               <ShoppingCart size={16} className="mr-1" /> Add to Cart
             </Button>
@@ -76,15 +104,13 @@ const ProductCard = ({ product, onAddToCart, onBuyNow }: ProductCardProps) => {
         </div>
         
         {/* Buy Now button */}
-        {onBuyNow && (
-          <Button 
-            className="w-full mt-3 bg-pastel-pink hover:bg-primary text-primary-foreground"
-            size="sm"
-            onClick={onBuyNow}
-          >
-            Buy Now
-          </Button>
-        )}
+        <Button 
+          className="w-full mt-3 bg-pastel-pink hover:bg-primary text-primary-foreground"
+          size="sm"
+          onClick={handleBuyNow}
+        >
+          Buy Now
+        </Button>
       </div>
     </div>
   );
