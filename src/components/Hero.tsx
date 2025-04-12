@@ -1,8 +1,19 @@
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
 const Hero = () => {
+  const navigate = useNavigate();
+  
+  const handleShopNewArrivals = () => {
+    navigate('/category/new-arrivals');
+  };
+  
+  const handleExploreCollection = () => {
+    navigate('/shop');
+  };
+  
   return (
     <section className="bg-gradient-to-br from-pastel-pink/30 via-white to-pastel-lavender/30">
       <div className="container mx-auto px-4 py-16 md:py-24">
@@ -15,8 +26,17 @@ const Hero = () => {
               Explore our curated collection of beautiful boutique fashion designed exclusively for women.
             </p>
             <div className="flex flex-wrap gap-4">
-              <Button className="btn-pastel px-8 py-6">Shop New Arrivals</Button>
-              <Button variant="outline" className="px-8 py-6 border-pastel-pink text-primary-foreground hover:bg-pastel-pink/10">
+              <Button 
+                className="btn-pastel px-8 py-6"
+                onClick={handleShopNewArrivals}
+              >
+                Shop New Arrivals
+              </Button>
+              <Button 
+                variant="outline" 
+                className="px-8 py-6 border-pastel-pink text-primary-foreground hover:bg-pastel-pink/10"
+                onClick={handleExploreCollection}
+              >
                 Explore Collection
               </Button>
             </div>

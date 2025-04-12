@@ -1,24 +1,43 @@
 
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingBag, User, Search, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const toggleSearch = () => setSearchOpen(!searchOpen);
 
   const categories = [
-    "New Arrivals",
-    "Dresses",
-    "Tops",
-    "Bottoms",
-    "Accessories",
-    "Sale"
+    { name: "New Arrivals", path: "/category/new-arrivals" },
+    { name: "Dresses", path: "/category/dresses" },
+    { name: "Tops", path: "/category/tops" },
+    { name: "Bottoms", path: "/category/bottoms" },
+    { name: "Accessories", path: "/category/accessories" },
+    { name: "Sale", path: "/category/sale" }
   ];
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/shop?query=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchOpen(false);
+    }
+  };
+
+  const handleSignIn = () => {
+    toast({
+      title: "Sign In",
+      description: "This feature will be implemented in the next update.",
+    });
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-pastel-pink/20">
@@ -33,11 +52,11 @@ const Navbar = () => {
           <nav className="hidden md:flex space-x-8">
             {categories.map((category) => (
               <Link 
-                key={category} 
-                to={`/category/${category.toLowerCase().replace(/\s+/g, '-')}`}
+                key={category.name} 
+                to={category.path}
                 className="nav-link text-sm"
               >
-                {category}
+                {category.name}
               </Link>
             ))}
           </nav>
@@ -53,9 +72,12 @@ const Navbar = () => {
                 0
               </span>
             </Link>
-            <Link to="/account" className="nav-link hidden md:block">
+            <button 
+              onClick={handleSignIn}
+              className="nav-link hidden md:block"
+            >
               <User size={20} />
-            </Link>
+            </button>
             <button className="md:hidden" onClick={toggleMenu}>
               {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -65,14 +87,22 @@ const Navbar = () => {
         {/* Search Bar */}
         {searchOpen && (
           <div className="py-3 border-t border-pastel-pink/20 animate-fade-in">
-            <div className="relative">
+            <form onSubmit={handleSearch} className="relative">
               <input
                 type="text"
                 placeholder="Search for products..."
                 className="w-full p-2 pl-10 rounded-full border border-pastel-pink/30 focus:outline-none focus:border-primary"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-pastel-pink" size={18} />
-            </div>
+              <button 
+                type="submit" 
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-pastel-pink text-white px-4 py-1 rounded-full text-sm"
+              >
+                Search
+              </button>
+            </form>
           </div>
         )}
       </div>
@@ -84,21 +114,23 @@ const Navbar = () => {
             <nav className="flex flex-col space-y-4">
               {categories.map((category) => (
                 <Link 
-                  key={category} 
-                  to={`/category/${category.toLowerCase().replace(/\s+/g, '-')}`}
+                  key={category.name} 
+                  to={category.path}
                   className="nav-link text-sm py-2 border-b border-pastel-pink/10"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  {category}
+                  {category.name}
                 </Link>
               ))}
-              <Link 
-                to="/account" 
-                className="nav-link text-sm py-2 border-b border-pastel-pink/10"
-                onClick={() => setIsMenuOpen(false)}
+              <button 
+                className="nav-link text-sm py-2 border-b border-pastel-pink/10 text-left"
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  handleSignIn();
+                }}
               >
                 My Account
-              </Link>
+              </button>
             </nav>
           </div>
         </div>

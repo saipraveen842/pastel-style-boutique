@@ -1,12 +1,13 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 interface Category {
   id: number;
   name: string;
   image: string;
   count: number;
+  path: string;
 }
 
 const categories: Category[] = [
@@ -14,29 +15,39 @@ const categories: Category[] = [
     id: 1,
     name: "Dresses",
     image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=783&q=80",
-    count: 124
+    count: 124,
+    path: "/category/dresses"
   },
   {
     id: 2,
     name: "Tops",
     image: "https://images.unsplash.com/photo-1503185912284-5271ff81b9a8?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=687&q=80",
-    count: 86
+    count: 86,
+    path: "/category/tops"
   },
   {
     id: 3,
     name: "Bottoms",
     image: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=687&q=80",
-    count: 62
+    count: 62,
+    path: "/category/bottoms"
   },
   {
     id: 4,
     name: "Accessories",
     image: "https://images.unsplash.com/photo-1576053139778-7e32f2ae3cfd?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=687&q=80",
-    count: 45
+    count: 45,
+    path: "/category/accessories"
   }
 ];
 
 const Categories = () => {
+  const navigate = useNavigate();
+  
+  const handleCategoryClick = (path: string) => {
+    navigate(path);
+  };
+  
   return (
     <section className="py-16 bg-white">
       <div className="container mx-auto px-4">
@@ -47,10 +58,10 @@ const Categories = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {categories.map(category => (
-            <Link 
-              key={category.id} 
-              to={`/category/${category.name.toLowerCase()}`}
-              className="relative group overflow-hidden rounded-xl pastel-shadow"
+            <div 
+              key={category.id}
+              onClick={() => handleCategoryClick(category.path)}
+              className="relative group overflow-hidden rounded-xl pastel-shadow cursor-pointer"
             >
               <div className="aspect-square overflow-hidden">
                 <img 
@@ -64,7 +75,7 @@ const Categories = () => {
                   <p className="text-sm opacity-80">{category.count} Products</p>
                 </div>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       </div>

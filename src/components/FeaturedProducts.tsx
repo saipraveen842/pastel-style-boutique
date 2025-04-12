@@ -1,6 +1,9 @@
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
 import ProductCard, { Product } from './ProductCard';
+import { Button } from '@/components/ui/button';
 
 const dummyProducts: Product[] = [
   {
@@ -40,6 +43,29 @@ const dummyProducts: Product[] = [
 ];
 
 const FeaturedProducts = () => {
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  
+  const handleAddToCart = (product: Product) => {
+    toast({
+      title: "Added to cart",
+      description: `${product.name} has been added to your cart.`,
+    });
+  };
+
+  const handleBuyNow = (product: Product) => {
+    toast({
+      title: "Proceeding to checkout",
+      description: `You are buying ${product.name}.`,
+    });
+    // Navigate to cart or checkout in a real implementation
+    navigate('/cart');
+  };
+  
+  const handleViewAllProducts = () => {
+    navigate('/shop');
+  };
+  
   return (
     <section className="py-12 bg-pastel-lavender/10">
       <div className="container mx-auto px-4">
@@ -50,12 +76,22 @@ const FeaturedProducts = () => {
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {dummyProducts.map(product => (
-            <ProductCard key={product.id} product={product} />
+            <ProductCard 
+              key={product.id} 
+              product={product} 
+              onAddToCart={() => handleAddToCart(product)}
+              onBuyNow={() => handleBuyNow(product)}
+            />
           ))}
         </div>
         
         <div className="text-center mt-12">
-          <button className="btn-pastel px-8 py-3">View All Products</button>
+          <Button 
+            className="btn-pastel px-8 py-3"
+            onClick={handleViewAllProducts}
+          >
+            View All Products
+          </Button>
         </div>
       </div>
     </section>
