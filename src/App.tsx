@@ -14,6 +14,7 @@ import { CartProvider } from "./contexts/CartContext";
 import { UserProvider } from "./contexts/UserContext";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import Account from "./pages/Account";
 
 const queryClient = new QueryClient();
 
@@ -32,7 +33,7 @@ const App = () => (
               <Route path="/shop" element={<Shop />} />
               <Route path="/category/:categoryName" element={<CategoryPage />} />
               <Route path="/product/:productId" element={<Index />} />
-              <Route path="/account" element={<Index />} />
+              <Route path="/account" element={<Account />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/new-arrivals" element={<CategoryPage />} />

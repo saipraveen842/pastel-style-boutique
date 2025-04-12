@@ -1,8 +1,7 @@
 
 import React from 'react';
-import { Heart, ShoppingCart } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Link, useNavigate } from 'react-router-dom';
+import { Button } from './ui/button';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -13,104 +12,111 @@ export interface Product {
   image: string;
   category: string;
   isNew?: boolean;
-  isFeatured?: boolean;
-  color?: string;
-  size?: string;
+  isSale?: boolean;
+  salePrice?: number;
+  colors?: string[];
+  sizes?: string[];
 }
 
-interface ProductCardProps {
+export interface ProductCardProps {
   product: Product;
+  onAddToCart?: () => void;
+  onBuyNow?: () => void;
 }
 
-const ProductCard = ({ product }: ProductCardProps) => {
+const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, onBuyNow }) => {
   const { addToCart } = useCart();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleAddToCart = () => {
     addToCart({
-      ...product,
-      color: product.color || 'Default',
-      size: product.size || 'M',
+      id: product.id,
+      name: product.name,
+      price: product.salePrice || product.price,
+      image: product.image,
+      size: product.sizes ? product.sizes[0] : 'One Size',
+      color: product.colors ? product.colors[0] : 'Default',
     });
     
     toast({
       title: "Added to cart",
-      description: `${product.name} has been added to your cart`
+      description: `${product.name} has been added to your cart`,
     });
+
+    if (onAddToCart) onAddToCart();
   };
 
-  const handleBuyNow = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleBuyNow = () => {
     addToCart({
-      ...product,
-      color: product.color || 'Default',
-      size: product.size || 'M',
+      id: product.id,
+      name: product.name,
+      price: product.salePrice || product.price,
+      image: product.image,
+      size: product.sizes ? product.sizes[0] : 'One Size',
+      color: product.colors ? product.colors[0] : 'Default',
     });
     
-    navigate('/cart');
+    navigate('/checkout');
+    
+    if (onBuyNow) onBuyNow();
   };
 
   return (
-    <div className="product-card group">
-      <div className="relative overflow-hidden">
+    <div className="group relative">
+      <div className="aspect-h-1 aspect-w-1 w-full overflow-hidden rounded-md bg-gray-200 lg:aspect-none group-hover:opacity-75 h-80">
         <Link to={`/product/${product.id}`}>
           <img
             src={product.image}
             alt={product.name}
-            className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105"
+            className="h-full w-full object-cover object-center lg:h-full lg:w-full"
           />
         </Link>
-        
-        {/* New tag */}
         {product.isNew && (
-          <div className="absolute top-2 left-2 bg-pastel-pink text-primary-foreground px-2 py-1 rounded-full text-xs font-medium">
-            New
-          </div>
+          <span className="absolute top-2 left-2 bg-pastel-pink text-white px-2 py-1 text-xs font-semibold rounded">
+            NEW
+          </span>
         )}
-        
-        {/* Quick actions */}
-        <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="flex justify-between">
-            <Button 
-              size="sm" 
-              variant="secondary" 
-              className="bg-white text-foreground hover:bg-pastel-pink hover:text-primary-foreground"
-              onClick={handleAddToCart}
-            >
-              <ShoppingCart size={16} className="mr-1" /> Add to Cart
-            </Button>
-            <Button 
-              size="icon" 
-              variant="outline" 
-              className="bg-white text-foreground hover:bg-pastel-pink hover:text-primary-foreground"
-            >
-              <Heart size={16} />
-            </Button>
-          </div>
-        </div>
+        {product.isSale && (
+          <span className="absolute top-2 right-2 bg-pastel-yellow text-primary px-2 py-1 text-xs font-semibold rounded">
+            SALE
+          </span>
+        )}
       </div>
-      
-      <div className="p-4">
-        <Link to={`/product/${product.id}`} className="block">
-          <h3 className="font-medium text-foreground truncate">{product.name}</h3>
-          <p className="text-primary-foreground font-semibold mt-1">
-            ${product.price.toFixed(2)}
-          </p>
-        </Link>
-        <div className="mt-2 text-xs text-muted-foreground">
-          {product.category}
+      <div className="mt-4">
+        <h3 className="text-sm font-medium text-gray-900">
+          <Link to={`/product/${product.id}`}>
+            {product.name}
+          </Link>
+        </h3>
+        <p className="mt-1 text-sm text-gray-500">{product.category}</p>
+        <div className="mt-1">
+          {product.salePrice ? (
+            <div className="flex items-center">
+              <span className="text-sm font-medium text-gray-900">${product.salePrice.toFixed(2)}</span>
+              <span className="ml-2 text-sm text-gray-500 line-through">${product.price.toFixed(2)}</span>
+            </div>
+          ) : (
+            <span className="text-sm font-medium text-gray-900">${product.price.toFixed(2)}</span>
+          )}
         </div>
-        
-        {/* Buy Now button */}
-        <Button 
-          className="w-full mt-3 bg-pastel-pink hover:bg-primary text-primary-foreground"
-          size="sm"
-          onClick={handleBuyNow}
-        >
-          Buy Now
-        </Button>
+        <div className="mt-4 flex space-x-2">
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="flex-1 text-xs"
+            onClick={handleAddToCart}
+          >
+            Add to Cart
+          </Button>
+          <Button 
+            size="sm" 
+            className="flex-1 bg-pastel-pink text-white hover:bg-pastel-pink/90 text-xs"
+            onClick={handleBuyNow}
+          >
+            Buy Now
+          </Button>
+        </div>
       </div>
     </div>
   );

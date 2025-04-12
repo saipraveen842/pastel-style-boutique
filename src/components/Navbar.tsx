@@ -1,9 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingBag, User, Search, Menu, X } from 'lucide-react';
+import { ShoppingBag, User, Search, Menu, X, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@/contexts/UserContext';
+import CartButton from './ui/cart-button';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -11,6 +13,7 @@ const Navbar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, isAuthenticated, logout } = useUser();
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const toggleSearch = () => setSearchOpen(!searchOpen);
@@ -32,11 +35,22 @@ const Navbar = () => {
     }
   };
 
-  const handleSignIn = () => {
+  const handleAuthAction = () => {
+    if (isAuthenticated) {
+      navigate('/account');
+    } else {
+      navigate('/login');
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
     toast({
-      title: "Sign In",
-      description: "This feature will be implemented in the next update.",
+      title: "Logged out",
+      description: "You have been successfully logged out.",
     });
+    navigate('/');
+    setIsMenuOpen(false);
   };
 
   return (
@@ -66,17 +80,19 @@ const Navbar = () => {
             <button onClick={toggleSearch} className="nav-link">
               <Search size={20} />
             </button>
-            <Link to="/cart" className="nav-link relative">
-              <ShoppingBag size={20} />
-              <span className="absolute -top-1 -right-1 bg-primary text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                0
-              </span>
-            </Link>
+            <CartButton />
             <button 
-              onClick={handleSignIn}
-              className="nav-link hidden md:block"
+              onClick={handleAuthAction}
+              className="nav-link hidden md:flex items-center space-x-1"
             >
-              <User size={20} />
+              {isAuthenticated ? (
+                <User size={20} />
+              ) : (
+                <>
+                  <LogIn size={20} />
+                  <span className="text-sm">Sign In</span>
+                </>
+              )}
             </button>
             <button className="md:hidden" onClick={toggleMenu}>
               {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -122,15 +138,31 @@ const Navbar = () => {
                   {category.name}
                 </Link>
               ))}
-              <button 
-                className="nav-link text-sm py-2 border-b border-pastel-pink/10 text-left"
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  handleSignIn();
-                }}
-              >
-                My Account
-              </button>
+              {isAuthenticated ? (
+                <>
+                  <Link 
+                    to="/account"
+                    className="nav-link text-sm py-2 border-b border-pastel-pink/10 text-left"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    My Account
+                  </Link>
+                  <button 
+                    className="nav-link text-sm py-2 border-b border-pastel-pink/10 text-left text-destructive"
+                    onClick={handleLogout}
+                  >
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <Link 
+                  to="/login"
+                  className="nav-link text-sm py-2 border-b border-pastel-pink/10 text-left"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Sign In / Register
+                </Link>
+              )}
             </nav>
           </div>
         </div>
