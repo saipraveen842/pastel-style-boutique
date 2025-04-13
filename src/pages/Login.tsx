@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { useUser } from '@/contexts/UserContext';
+import { useAuth } from '@/hooks/useAuth';
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -22,8 +22,14 @@ type FormValues = z.infer<typeof formSchema>;
 const Login = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { login } = useUser();
-  const [isLoading, setIsLoading] = React.useState(false);
+  const { signIn, isAuthenticated } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -36,20 +42,11 @@ const Login = () => {
   const onSubmit = async (data: FormValues) => {
     try {
       setIsLoading(true);
-      await login(data.email, data.password);
-      
-      toast({
-        title: "Login successful",
-        description: "Welcome back to BoutiqueHub!",
-      });
-
-      navigate('/');
+      await signIn(data.email, data.password);
+      // Navigation is handled by the auth state change listener
     } catch (error) {
-      toast({
-        title: "Login failed",
-        description: "Please check your credentials and try again",
-        variant: "destructive",
-      });
+      // Error is handled in the signIn function
+      console.error(error);
     } finally {
       setIsLoading(false);
     }

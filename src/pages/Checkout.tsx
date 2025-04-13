@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -12,6 +12,10 @@ import { useCart } from '@/contexts/CartContext';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import BackButton from '@/components/ui/back-button';
+import { addressService } from '@/services/addressService';
+import { orderService } from '@/services/orderService';
+import { Address } from '@/types/supabase';
+import { useAuth } from '@/hooks/useAuth';
 
 // Form validation schema
 const formSchema = z.object({
@@ -36,6 +40,11 @@ const Checkout = () => {
   const navigate = useNavigate();
   const { cartItems, clearCart } = useCart();
   const [step, setStep] = useState<'shipping' | 'payment' | 'confirmation'>('shipping');
+  const { user } = useAuth();
+  
+  const [addressId, setAddressId] = useState<string | null>(null);
+  const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(true);
 
   // Calculate order summary
   const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -62,19 +71,102 @@ const Checkout = () => {
     },
   });
 
+  // Load user's saved addresses
+  useEffect(() => {
+    const loadAddresses = async () => {
+      try {
+        setLoadingAddresses(true);
+        const addresses = await addressService.getAddresses();
+        setSavedAddresses(addresses);
+        
+        // If there's a default address, use it
+        const defaultAddress = addresses.find(addr => addr.is_default);
+        if (defaultAddress) {
+          setAddressId(defaultAddress.id);
+          
+          // Pre-fill form with default address
+          form.setValue('address', defaultAddress.street);
+          form.setValue('city', defaultAddress.city);
+          form.setValue('state', defaultAddress.state);
+          form.setValue('zipCode', defaultAddress.zip_code);
+        }
+      } catch (error) {
+        console.error('Error loading addresses:', error);
+      } finally {
+        setLoadingAddresses(false);
+      }
+    };
+    
+    if (user) {
+      loadAddresses();
+    }
+  }, [user, form]);
+
   // Handle form submission
-  const onSubmit = (data: FormValues) => {
+  const onSubmit = async (data: FormValues) => {
     if (step === 'shipping') {
+      // If user is logged in and we don't have an addressId yet, save the address
+      if (user && !addressId) {
+        try {
+          const newAddress = await addressService.createAddress({
+            street: data.address,
+            city: data.city,
+            state: data.state,
+            zip_code: data.zipCode,
+            is_default: savedAddresses.length === 0 // Make it default if it's the first address
+          });
+          
+          setAddressId(newAddress.id);
+          toast({
+            title: 'Address saved',
+            description: 'Your address has been saved for future use.',
+          });
+        } catch (error) {
+          console.error('Error saving address:', error);
+          toast({
+            title: 'Error',
+            description: 'Failed to save your address, but you can continue checkout.',
+            variant: 'destructive',
+          });
+        }
+      }
+      
       setStep('payment');
     } else if (step === 'payment') {
-      // In a real application, this would handle payment processing
-      // and send the order to the backend
-      toast({
-        title: "Order placed successfully!",
-        description: "Your order has been confirmed and will be shipped soon.",
-      });
-      setStep('confirmation');
-      clearCart();
+      try {
+        // Process the payment (in a real app, this would call a payment processor)
+        // For this demo, we'll just create the order
+        
+        if (user && addressId) {
+          // Create the order in Supabase
+          await orderService.createOrder(
+            addressId,
+            total,
+            cartItems.map(item => ({
+              product_id: item.id,
+              quantity: item.quantity,
+              price: item.price,
+              size: item.size,
+              color: item.color
+            }))
+          );
+        }
+        
+        toast({
+          title: "Order placed successfully!",
+          description: "Your order has been confirmed and will be shipped soon.",
+        });
+        
+        setStep('confirmation');
+        clearCart();
+      } catch (error) {
+        console.error('Error creating order:', error);
+        toast({
+          title: 'Order Failed',
+          description: 'There was an error processing your order. Please try again.',
+          variant: 'destructive',
+        });
+      }
     }
   };
 

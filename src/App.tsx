@@ -16,35 +16,46 @@ import { UserProvider } from "./contexts/UserContext";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Account from "./pages/Account";
+import { AuthProvider, RequireAuth } from "./hooks/useAuth";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <UserProvider>
-      <CartProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/cart" element={<Cart />} />
-              <Route path="/checkout" element={<Checkout />} />
-              <Route path="/shop" element={<Shop />} />
-              <Route path="/category/:categoryName" element={<CategoryPage />} />
-              <Route path="/product/:productId" element={<ProductDetail />} />
-              <Route path="/account" element={<Account />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-              <Route path="/new-arrivals" element={<CategoryPage />} />
-              <Route path="/sale" element={<CategoryPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </CartProvider>
-    </UserProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <UserProvider>
+          <CartProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/cart" element={<Cart />} />
+                <Route path="/checkout" element={
+                  <RequireAuth>
+                    <Checkout />
+                  </RequireAuth>
+                } />
+                <Route path="/shop" element={<Shop />} />
+                <Route path="/category/:categoryName" element={<CategoryPage />} />
+                <Route path="/product/:productId" element={<ProductDetail />} />
+                <Route path="/account" element={
+                  <RequireAuth>
+                    <Account />
+                  </RequireAuth>
+                } />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/new-arrivals" element={<CategoryPage />} />
+                <Route path="/sale" element={<CategoryPage />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </TooltipProvider>
+          </CartProvider>
+        </UserProvider>
+      </AuthProvider>
+    </BrowserRouter>
   </QueryClientProvider>
 );
 

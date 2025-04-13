@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { useUser } from '@/contexts/UserContext';
+import { useAuth } from '@/hooks/useAuth';
 
 const formSchema = z.object({
   firstName: z.string().min(2, { message: "First name is required" }),
@@ -30,8 +30,14 @@ type FormValues = z.infer<typeof formSchema>;
 const Signup = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { signup } = useUser();
-  const [isLoading, setIsLoading] = React.useState(false);
+  const { signUp, isAuthenticated } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -48,25 +54,19 @@ const Signup = () => {
     try {
       setIsLoading(true);
       
-      await signup({
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
-        password: data.password
-      });
+      await signUp(
+        data.email, 
+        data.password,
+        {
+          firstName: data.firstName,
+          lastName: data.lastName
+        }
+      );
       
-      toast({
-        title: "Account created",
-        description: "Welcome to BoutiqueHub!",
-      });
-
-      navigate('/');
+      // Navigation is handled by the auth state change listener
     } catch (error) {
-      toast({
-        title: "Registration failed",
-        description: "There was a problem creating your account. Please try again.",
-        variant: "destructive",
-      });
+      // Error is handled in the signUp function
+      console.error(error);
     } finally {
       setIsLoading(false);
     }
