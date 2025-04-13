@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -38,7 +39,7 @@ type FormValues = z.infer<typeof formSchema>;
 const Checkout = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { cartItems, clearCart } = useCart();
+  const { items, clearCart } = useCart();
   const [step, setStep] = useState<'shipping' | 'payment' | 'confirmation'>('shipping');
   const { user } = useAuth();
   
@@ -47,7 +48,7 @@ const Checkout = () => {
   const [loadingAddresses, setLoadingAddresses] = useState(true);
 
   // Calculate order summary
-  const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const subtotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const shipping = subtotal > 100 ? 0 : 5.99;
   const tax = subtotal * 0.07; // 7% tax
   const total = subtotal + shipping + tax;
@@ -76,7 +77,7 @@ const Checkout = () => {
     const loadAddresses = async () => {
       try {
         setLoadingAddresses(true);
-        const addresses = await addressService.getAddresses();
+        const addresses = await addressService.getUserAddresses();
         setSavedAddresses(addresses);
         
         // If there's a default address, use it
@@ -116,11 +117,13 @@ const Checkout = () => {
             is_default: savedAddresses.length === 0 // Make it default if it's the first address
           });
           
-          setAddressId(newAddress.id);
-          toast({
-            title: 'Address saved',
-            description: 'Your address has been saved for future use.',
-          });
+          if (newAddress) {
+            setAddressId(newAddress.id);
+            toast({
+              title: 'Address saved',
+              description: 'Your address has been saved for future use.',
+            });
+          }
         } catch (error) {
           console.error('Error saving address:', error);
           toast({
@@ -139,17 +142,7 @@ const Checkout = () => {
         
         if (user && addressId) {
           // Create the order in Supabase
-          await orderService.createOrder(
-            addressId,
-            total,
-            cartItems.map(item => ({
-              product_id: item.id,
-              quantity: item.quantity,
-              price: item.price,
-              size: item.size,
-              color: item.color
-            }))
-          );
+          await orderService.createOrder(addressId, items);
         }
         
         toast({
@@ -347,7 +340,7 @@ const Checkout = () => {
                             <ArrowLeft size={16} className="mr-2" />
                             Back to Cart
                           </Button>
-                          <Button type="submit" className="btn-pastel">
+                          <Button type="submit" className="bg-primary text-white hover:bg-primary/90">
                             Continue to Payment
                           </Button>
                         </div>
@@ -423,7 +416,7 @@ const Checkout = () => {
                             <ArrowLeft size={16} className="mr-2" />
                             Back to Shipping
                           </Button>
-                          <Button type="submit" className="btn-pastel">
+                          <Button type="submit" className="bg-primary text-white hover:bg-primary/90">
                             Place Order
                           </Button>
                         </div>
@@ -443,7 +436,7 @@ const Checkout = () => {
                     </p>
                     <p className="font-medium mb-8">Order #: {Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}</p>
                     
-                    <Button onClick={() => navigate('/')} className="btn-pastel px-8">
+                    <Button onClick={() => navigate('/')} className="bg-primary text-white hover:bg-primary/90 px-8">
                       Continue Shopping
                     </Button>
                   </div>
@@ -457,7 +450,7 @@ const Checkout = () => {
                 <h2 className="text-xl font-semibold mb-6">Order Summary</h2>
                 
                 <div className="space-y-4 mb-6">
-                  {cartItems.map((item) => (
+                  {items.map((item) => (
                     <div key={item.id} className="flex items-start space-x-4">
                       <div className="w-16 h-16 rounded overflow-hidden flex-shrink-0">
                         <img 

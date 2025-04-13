@@ -12,12 +12,12 @@ import { useCart } from '@/contexts/CartContext';
 const Cart = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { cartItems, updateQuantity, removeFromCart } = useCart();
+  const { items, updateQuantity, removeFromCart } = useCart();
   const [promoCode, setPromoCode] = React.useState('');
   const [discount, setDiscount] = React.useState(0);
 
   // Calculate subtotal
-  const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const subtotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const shipping = subtotal > 100 ? 0 : 5.99;
   const tax = subtotal * 0.07; // 7% tax
   const total = subtotal + shipping + tax - discount;
@@ -48,7 +48,7 @@ const Cart = () => {
   };
 
   const handleCheckout = () => {
-    if (cartItems.length === 0) {
+    if (items.length === 0) {
       toast({
         title: "Empty Cart",
         description: "Please add items to your cart before checkout",
@@ -67,7 +67,7 @@ const Cart = () => {
         <div className="container mx-auto px-4">
           <h1 className="text-3xl font-bold text-foreground mb-8">Your Shopping Bag</h1>
           
-          {cartItems.length === 0 ? (
+          {items.length === 0 ? (
             <div className="text-center py-16 max-w-md mx-auto">
               <ShoppingBag className="mx-auto h-16 w-16 text-pastel-pink mb-4" />
               <h2 className="text-2xl font-medium mb-4">Your bag is empty</h2>
@@ -75,7 +75,7 @@ const Cart = () => {
                 Looks like you haven't added anything to your bag yet. Explore our collections to find your perfect style.
               </p>
               <Link to="/shop">
-                <Button className="btn-pastel px-8 py-6">
+                <Button className="btn-pastel px-8 py-6 bg-primary text-white hover:bg-primary/90">
                   Start Shopping
                 </Button>
               </Link>
@@ -85,7 +85,7 @@ const Cart = () => {
               {/* Cart Items */}
               <div className="lg:col-span-2">
                 <div className="bg-white rounded-xl pastel-shadow p-6">
-                  {cartItems.map((item) => (
+                  {items.map((item) => (
                     <div key={item.id} className="flex flex-col sm:flex-row items-start sm:items-center py-6 border-b border-pastel-pink/10 last:border-b-0">
                       <div className="w-full sm:w-24 h-24 rounded-lg overflow-hidden mb-4 sm:mb-0 sm:mr-6 flex-shrink-0">
                         <img 
@@ -111,14 +111,14 @@ const Cart = () => {
                         <div className="flex justify-between mt-4">
                           <div className="flex items-center border border-pastel-pink/30 rounded-full">
                             <button 
-                              onClick={() => updateQuantity(item.id, -1)}
+                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
                               className="p-1 hover:bg-pastel-pink/10 rounded-l-full"
                             >
                               <Minus size={16} />
                             </button>
                             <span className="px-3 py-1">{item.quantity}</span>
                             <button 
-                              onClick={() => updateQuantity(item.id, 1)}
+                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
                               className="p-1 hover:bg-pastel-pink/10 rounded-r-full"
                             >
                               <Plus size={16} />
@@ -195,7 +195,7 @@ const Cart = () => {
                       />
                       <button
                         onClick={applyPromoCode}
-                        className="bg-pastel-pink text-primary-foreground px-4 py-2 rounded-r-lg"
+                        className="bg-primary text-white px-4 py-2 rounded-r-lg hover:bg-primary/90"
                       >
                         Apply
                       </button>
@@ -206,7 +206,7 @@ const Cart = () => {
                   </div>
                   
                   <Button 
-                    className="w-full btn-pastel py-6 mb-4"
+                    className="w-full bg-primary text-white hover:bg-primary/90 py-6 mb-4"
                     onClick={handleCheckout}
                   >
                     Proceed to Checkout
