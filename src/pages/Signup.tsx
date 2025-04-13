@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -30,10 +30,10 @@ type FormValues = z.infer<typeof formSchema>;
 const Signup = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { signUp, isAuthenticated } = useAuth();
+  const { signUp, isAuthenticated, loading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isAuthenticated) {
       navigate('/');
     }
@@ -53,6 +53,7 @@ const Signup = () => {
   const onSubmit = async (data: FormValues) => {
     try {
       setIsLoading(true);
+      console.log('Signup form submitted:', data.email);
       
       await signUp(
         data.email, 
@@ -65,8 +66,8 @@ const Signup = () => {
       
       // Navigation is handled by the auth state change listener
     } catch (error) {
+      console.error('Signup form error:', error);
       // Error is handled in the signUp function
-      console.error(error);
     } finally {
       setIsLoading(false);
     }
@@ -137,7 +138,9 @@ const Signup = () => {
                       <FormControl>
                         <Input placeholder="••••••••" type="password" {...field} />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className="text-xs">
+                        Password must be at least 8 characters with one uppercase letter and one number
+                      </FormMessage>
                     </FormItem>
                   )}
                 />
@@ -158,8 +161,8 @@ const Signup = () => {
 
                 <Button 
                   type="submit" 
-                  className="w-full btn-pastel py-6 mt-6"
-                  disabled={isLoading}
+                  className="w-full btn-pastel py-6 mt-6 bg-[#333] text-white hover:bg-[#222]"
+                  disabled={isLoading || authLoading}
                 >
                   {isLoading ? "Creating Account..." : "Create Account"}
                 </Button>

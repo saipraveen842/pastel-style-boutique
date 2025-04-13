@@ -4,8 +4,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ShoppingBag, User, Search, Menu, X, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useUser } from '@/contexts/UserContext';
 import CartButton from './ui/cart-button';
+import { useAuth } from '@/hooks/useAuth';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -14,7 +14,7 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { user, isAuthenticated, logout } = useUser();
+  const { user, isAuthenticated, signOut } = useAuth();
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const toggleSearch = () => setSearchOpen(!searchOpen);
@@ -54,8 +54,8 @@ const Navbar = () => {
     }
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     toast({
       title: "Logged out",
       description: "You have been successfully logged out.",

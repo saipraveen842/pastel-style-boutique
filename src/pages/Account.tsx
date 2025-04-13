@@ -1,69 +1,74 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { CalendarIcon, CircleUser, HomeIcon, Package, ShoppingBag, CreditCard, Settings } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import BackButton from '@/components/ui/back-button';
 import { useAuth } from '@/hooks/useAuth';
-import { orderService } from '@/services/orderService';
-import { profileService } from '@/services/profileService';
-import { Address, Order, Profile } from '@/types/supabase';
 import { addressService } from '@/services/addressService';
+import { orderService } from '@/services/orderService';
+import { Order, Address } from '@/types/supabase';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 const Account = () => {
-  const { signOut, user } = useAuth();
-  const { toast } = useToast();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState('profile');
   const [orders, setOrders] = useState<Order[]>([]);
   const [addresses, setAddresses] = useState<Address[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadData = async () => {
+    const fetchUserData = async () => {
+      setIsLoading(true);
       try {
-        setLoading(true);
+        const [userOrders, userAddresses] = await Promise.all([
+          orderService.getUserOrders(),
+          addressService.getUserAddresses()
+        ]);
         
-        // Load profile data
-        const profileData = await profileService.getProfile();
-        setProfile(profileData);
-        
-        // Load orders
-        const ordersData = await orderService.getOrders();
-        setOrders(ordersData);
-        
-        // Load addresses
-        const addressesData = await addressService.getAddresses();
-        setAddresses(addressesData);
+        setOrders(userOrders || []);
+        setAddresses(userAddresses || []);
       } catch (error) {
-        console.error('Error loading account data:', error);
+        console.error("Error fetching user data:", error);
         toast({
-          title: 'Error',
-          description: 'Failed to load your account information',
-          variant: 'destructive',
+          title: "Error",
+          description: "Failed to load your account data. Please try again.",
+          variant: "destructive",
         });
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
-    
-    loadData();
-  }, [toast]);
+
+    if (user) {
+      fetchUserData();
+    }
+  }, [user, toast]);
 
   const handleLogout = async () => {
-    await signOut();
-    // Navigation is handled by the auth state change listener
+    try {
+      await signOut();
+      navigate('/');
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-grow py-12 bg-background">
-          <div className="container mx-auto px-4 text-center">
-            Loading your account information...
+          <div className="container mx-auto px-4">
+            <div className="flex justify-center items-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pastel-pink mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading your account information...</p>
+              </div>
+            </div>
           </div>
         </main>
         <Footer />
@@ -71,135 +76,304 @@ const Account = () => {
     );
   }
 
+  
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <main className="flex-grow py-12 bg-background">
-        <div className="container mx-auto px-4 max-w-4xl">
-          <div className="mb-6">
-            <BackButton />
-          </div>
-          <div className="bg-white rounded-xl pastel-shadow p-8">
-            <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold">My Account</h1>
-              <p className="text-muted-foreground mt-2">Manage your account settings and view your orders</p>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-8">
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold">Account Information</h2>
-                <div className="space-y-2">
-                  <p><span className="font-medium">Name:</span> {profile?.first_name} {profile?.last_name}</p>
-                  <p><span className="font-medium">Email:</span> {profile?.email}</p>
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[250px_1fr]">
+            {/* Account Sidebar for Desktop */}
+            <div className="hidden lg:block">
+              <div className="bg-white rounded-xl pastel-shadow p-6 sticky top-24">
+                <div className="flex items-center space-x-3 pb-6 mb-6 border-b border-pastel-pink/10">
+                  <div className="w-12 h-12 rounded-full bg-pastel-pink/20 flex items-center justify-center">
+                    <CircleUser className="text-pastel-pink" />
+                  </div>
+                  <div>
+                    <h2 className="font-semibold">{user?.user_metadata?.first_name || 'User'} {user?.user_metadata?.last_name || ''}</h2>
+                    <p className="text-sm text-muted-foreground">{user?.email}</p>
+                  </div>
                 </div>
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => navigate('/account/edit')}
-                >
-                  Edit Profile
-                </Button>
                 
-                <h2 className="text-xl font-semibold pt-4">Saved Addresses</h2>
-                {addresses.length > 0 ? (
-                  <div className="space-y-4">
-                    {addresses.map((address) => (
-                      <div key={address.id} className="border rounded-md p-4 relative">
-                        {address.is_default && (
-                          <span className="absolute top-2 right-2 bg-pastel-pink text-white text-xs px-2 py-1 rounded-full">
-                            Default
-                          </span>
-                        )}
-                        <p className="font-medium">{address.street}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {address.city}, {address.state} {address.zip_code}
+                <nav className="space-y-1">
+                  <button 
+                    onClick={() => setActiveTab('profile')} 
+                    className={`w-full text-left flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${activeTab === 'profile' ? 'bg-pastel-pink/10 text-pastel-pink' : 'hover:bg-gray-100'}`}
+                  >
+                    <CircleUser size={18} />
+                    <span>My Profile</span>
+                  </button>
+                  
+                  <button 
+                    onClick={() => setActiveTab('orders')} 
+                    className={`w-full text-left flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${activeTab === 'orders' ? 'bg-pastel-pink/10 text-pastel-pink' : 'hover:bg-gray-100'}`}
+                  >
+                    <Package size={18} />
+                    <span>My Orders</span>
+                  </button>
+                  
+                  <button 
+                    onClick={() => setActiveTab('addresses')} 
+                    className={`w-full text-left flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${activeTab === 'addresses' ? 'bg-pastel-pink/10 text-pastel-pink' : 'hover:bg-gray-100'}`}
+                  >
+                    <HomeIcon size={18} />
+                    <span>My Addresses</span>
+                  </button>
+                  
+                  <button 
+                    onClick={() => setActiveTab('wishlist')} 
+                    className={`w-full text-left flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${activeTab === 'wishlist' ? 'bg-pastel-pink/10 text-pastel-pink' : 'hover:bg-gray-100'}`}
+                  >
+                    <ShoppingBag size={18} />
+                    <span>Wishlist</span>
+                  </button>
+                  
+                  <button 
+                    onClick={() => setActiveTab('payments')} 
+                    className={`w-full text-left flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${activeTab === 'payments' ? 'bg-pastel-pink/10 text-pastel-pink' : 'hover:bg-gray-100'}`}
+                  >
+                    <CreditCard size={18} />
+                    <span>Payment Methods</span>
+                  </button>
+                  
+                  <button 
+                    onClick={() => setActiveTab('settings')} 
+                    className={`w-full text-left flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-pastel-pink/10 text-pastel-pink' : 'hover:bg-gray-100'}`}
+                  >
+                    <Settings size={18} />
+                    <span>Account Settings</span>
+                  </button>
+                </nav>
+                
+                <div className="mt-10 pt-6 border-t border-pastel-pink/10">
+                  <Button 
+                    onClick={handleLogout}
+                    className="w-full bg-[#333] text-white hover:bg-[#222]"
+                  >
+                    Sign Out
+                  </Button>
+                </div>
+              </div>
+            </div>
+            
+            {/* Mobile Tabs Navigation */}
+            <div className="lg:hidden mb-6">
+              <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="grid grid-cols-3 h-auto">
+                  <TabsTrigger value="profile" className="py-3">
+                    <CircleUser size={16} className="mr-2" />
+                    Profile
+                  </TabsTrigger>
+                  <TabsTrigger value="orders" className="py-3">
+                    <Package size={16} className="mr-2" />
+                    Orders
+                  </TabsTrigger>
+                  <TabsTrigger value="addresses" className="py-3">
+                    <HomeIcon size={16} className="mr-2" />
+                    Addresses
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+            
+            {/* Content Area */}
+            <div className="bg-white rounded-xl pastel-shadow p-6">
+              {/* Profile Content */}
+              {activeTab === 'profile' && (
+                <div>
+                  <h1 className="text-2xl font-bold mb-6">My Profile</h1>
+                  
+                  <div className="space-y-6">
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div>
+                        <h3 className="text-sm text-muted-foreground mb-2">First Name</h3>
+                        <p className="font-medium">{user?.user_metadata?.first_name || 'Not set'}</p>
+                      </div>
+                      
+                      <div>
+                        <h3 className="text-sm text-muted-foreground mb-2">Last Name</h3>
+                        <p className="font-medium">{user?.user_metadata?.last_name || 'Not set'}</p>
+                      </div>
+                      
+                      <div>
+                        <h3 className="text-sm text-muted-foreground mb-2">Email Address</h3>
+                        <p className="font-medium">{user?.email}</p>
+                      </div>
+                      
+                      <div>
+                        <h3 className="text-sm text-muted-foreground mb-2">Member Since</h3>
+                        <p className="font-medium flex items-center">
+                          <CalendarIcon size={16} className="mr-2 text-pastel-pink" />
+                          {new Date(user?.created_at as string).toLocaleDateString()}
                         </p>
                       </div>
-                    ))}
-                    <Button 
-                      variant="outline" 
-                      className="w-full"
-                      onClick={() => navigate('/account/addresses')}
-                    >
-                      Manage Addresses
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="text-center py-4 text-muted-foreground italic">
-                    No saved addresses found.
-                    <Button 
-                      variant="link" 
-                      className="block w-full mt-2"
-                      onClick={() => navigate('/account/addresses/new')}
-                    >
-                      Add a new address
-                    </Button>
-                  </div>
-                )}
-              </div>
-              
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold">Recent Orders</h2>
-                {orders.length > 0 ? (
-                  <div className="space-y-4">
-                    {orders.map((order) => (
-                      <div 
-                        key={order.id} 
-                        className="border rounded-md p-4 hover:border-pastel-pink cursor-pointer transition-colors"
-                        onClick={() => navigate(`/account/orders/${order.id}`)}
+                    </div>
+                    
+                    <div className="pt-6 border-t border-pastel-pink/10">
+                      <h3 className="font-semibold mb-4">Edit Profile</h3>
+                      <Button 
+                        onClick={() => setActiveTab('settings')}
+                        className="bg-[#333] text-white hover:bg-[#222]"
                       >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-medium">Order #{order.id.substring(0, 8)}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {new Date(order.created_at).toLocaleDateString()}
-                            </p>
+                        Edit Profile Information
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Orders Content */}
+              {activeTab === 'orders' && (
+                <div>
+                  <h1 className="text-2xl font-bold mb-6">My Orders</h1>
+                  
+                  {orders.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Package className="w-16 h-16 mx-auto text-pastel-pink/50 mb-4" />
+                      <h3 className="text-lg font-medium mb-2">No orders yet</h3>
+                      <p className="text-muted-foreground mb-6">You haven't placed any orders yet.</p>
+                      <Button 
+                        onClick={() => navigate('/shop')}
+                        className="bg-[#333] text-white hover:bg-[#222]"
+                      >
+                        Start Shopping
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {orders.map(order => (
+                        <div key={order.id} className="border border-pastel-pink/20 rounded-lg p-4">
+                          <div className="flex flex-wrap justify-between items-start gap-3 mb-4">
+                            <div>
+                              <h3 className="font-semibold">Order #{order.id.slice(-6)}</h3>
+                              <p className="text-sm text-muted-foreground">
+                                Placed on {new Date(order.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                            
+                            <div>
+                              <span className={`px-3 py-1 rounded-full text-xs ${
+                                order.order_status === 'delivered' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : order.order_status === 'shipped'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1)}
+                              </span>
+                            </div>
                           </div>
-                          <div className="text-right">
+                          
+                          <div className="flex justify-between items-center border-t border-pastel-pink/10 pt-4 mt-4">
                             <p className="font-medium">${order.total_amount.toFixed(2)}</p>
-                            <p className={`text-xs px-2 py-1 rounded-full ${
-                              order.order_status === 'completed' 
-                                ? 'bg-green-100 text-green-800' 
-                                : order.order_status === 'processing'
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              {order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1)}
-                            </p>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => navigate(`/order/${order.id}`)}
+                            >
+                              View Details
+                            </Button>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                    <Button 
-                      variant="outline" 
-                      className="w-full"
-                      onClick={() => navigate('/account/orders')}
-                    >
-                      View All Orders
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground italic">
-                    You haven't placed any orders yet.
-                    <Button 
-                      className="w-full btn-pastel mt-4"
-                      onClick={() => navigate('/shop')}
-                    >
-                      Start Shopping
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-12 pt-6 border-t border-gray-200">
-              <Button 
-                variant="outline" 
-                className="w-full text-destructive border-destructive hover:bg-destructive/10"
-                onClick={handleLogout}
-              >
-                Log Out
-              </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Other content tabs would go here */}
+              {activeTab === 'addresses' && (
+                <div>
+                  <h1 className="text-2xl font-bold mb-6">My Addresses</h1>
+                  
+                  {addresses.length === 0 ? (
+                    <div className="text-center py-12">
+                      <HomeIcon className="w-16 h-16 mx-auto text-pastel-pink/50 mb-4" />
+                      <h3 className="text-lg font-medium mb-2">No addresses saved</h3>
+                      <p className="text-muted-foreground mb-6">Add a shipping address to speed up checkout.</p>
+                      <Button className="bg-[#333] text-white hover:bg-[#222]">
+                        Add New Address
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {addresses.map(address => (
+                        <div 
+                          key={address.id} 
+                          className={`border rounded-lg p-4 ${
+                            address.is_default ? 'border-pastel-pink bg-pastel-pink/5' : 'border-pastel-pink/20'
+                          }`}
+                        >
+                          {address.is_default && (
+                            <div className="mb-2">
+                              <span className="text-xs font-medium bg-pastel-pink text-white px-2 py-1 rounded-full">
+                                Default Address
+                              </span>
+                            </div>
+                          )}
+                          
+                          <div className="space-y-1 mb-4">
+                            <p className="font-medium">{address.street}</p>
+                            <p>{address.city}, {address.state} {address.zip_code}</p>
+                          </div>
+                          
+                          <div className="flex space-x-2">
+                            <Button variant="outline" size="sm">
+                              Edit
+                            </Button>
+                            {!address.is_default && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => addressService.setDefaultAddress(address.id)}
+                              >
+                                Set as Default
+                              </Button>
+                            )}
+                            {!address.is_default && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => {
+                                  if (confirm('Are you sure you want to delete this address?')) {
+                                    addressService.deleteAddress(address.id);
+                                  }
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      
+                      <Button className="bg-[#333] text-white hover:bg-[#222] mt-4">
+                        Add New Address
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Wishlist, Payments, Settings tabs would be implemented similarly */}
+              {(activeTab === 'wishlist' || activeTab === 'payments' || activeTab === 'settings') && (
+                <div className="text-center py-12">
+                  <h1 className="text-2xl font-bold mb-6">
+                    {activeTab === 'wishlist' ? 'My Wishlist' : 
+                     activeTab === 'payments' ? 'Payment Methods' : 
+                     'Account Settings'}
+                  </h1>
+                  <p className="text-muted-foreground mb-4">This feature is coming soon!</p>
+                  <Button 
+                    onClick={() => setActiveTab('profile')}
+                    variant="outline"
+                  >
+                    Back to Profile
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
