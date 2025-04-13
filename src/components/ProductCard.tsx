@@ -13,6 +13,7 @@ export interface Product {
   category: string;
   isNew?: boolean;
   isSale?: boolean;
+  isFeatured?: boolean;
   salePrice?: number;
   colors?: string[];
   sizes?: string[];

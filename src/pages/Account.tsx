@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/contexts/UserContext';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import BackButton from '@/components/ui/back-button';
 
 const Account = () => {
   const { user, logout } = useUser();
@@ -31,6 +32,9 @@ const Account = () => {
       <Navbar />
       <main className="flex-grow py-12 bg-background">
         <div className="container mx-auto px-4 max-w-4xl">
+          <div className="mb-6">
+            <BackButton />
+          </div>
           <div className="bg-white rounded-xl pastel-shadow p-8">
             <div className="text-center mb-8">
               <h1 className="text-2xl font-bold">My Account</h1>

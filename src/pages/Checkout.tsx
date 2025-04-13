@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useCart } from '@/contexts/CartContext';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import BackButton from '@/components/ui/back-button';
 
 // Form validation schema
 const formSchema = z.object({
@@ -94,6 +94,13 @@ const Checkout = () => {
       <Navbar />
       <main className="flex-grow py-12 bg-background">
         <div className="container mx-auto px-4">
+          {/* Back button */}
+          {step !== 'confirmation' && (
+            <div className="mb-4">
+              <BackButton />
+            </div>
+          )}
+          
           {/* Checkout progress */}
           <div className="mb-8">
             <div className="flex items-center justify-center">

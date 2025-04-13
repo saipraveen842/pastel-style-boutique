@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ShoppingBag, User, Search, Menu, X, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -12,6 +12,7 @@ const Navbar = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { user, isAuthenticated, logout } = useUser();
 
@@ -26,6 +27,16 @@ const Navbar = () => {
     { name: "Accessories", path: "/category/accessories" },
     { name: "Sale", path: "/category/sale" }
   ];
+
+  const isActiveLink = (path: string) => {
+    if (path === '/' && location.pathname === '/') {
+      return true;
+    }
+    if (path !== '/' && location.pathname.startsWith(path)) {
+      return true;
+    }
+    return false;
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,7 +79,11 @@ const Navbar = () => {
               <Link 
                 key={category.name} 
                 to={category.path}
-                className="nav-link text-sm"
+                className={`nav-link text-sm transition-colors ${
+                  isActiveLink(category.path) 
+                    ? 'text-pastel-pink font-semibold' 
+                    : 'hover:text-pastel-pink'
+                }`}
               >
                 {category.name}
               </Link>
@@ -132,7 +147,9 @@ const Navbar = () => {
                 <Link 
                   key={category.name} 
                   to={category.path}
-                  className="nav-link text-sm py-2 border-b border-pastel-pink/10"
+                  className={`nav-link text-sm py-2 border-b border-pastel-pink/10 ${
+                    isActiveLink(category.path) ? 'text-pastel-pink font-semibold' : ''
+                  }`}
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {category.name}
@@ -142,7 +159,9 @@ const Navbar = () => {
                 <>
                   <Link 
                     to="/account"
-                    className="nav-link text-sm py-2 border-b border-pastel-pink/10 text-left"
+                    className={`nav-link text-sm py-2 border-b border-pastel-pink/10 text-left ${
+                      location.pathname === '/account' ? 'text-pastel-pink font-semibold' : ''
+                    }`}
                     onClick={() => setIsMenuOpen(false)}
                   >
                     My Account
@@ -157,7 +176,9 @@ const Navbar = () => {
               ) : (
                 <Link 
                   to="/login"
-                  className="nav-link text-sm py-2 border-b border-pastel-pink/10 text-left"
+                  className={`nav-link text-sm py-2 border-b border-pastel-pink/10 text-left ${
+                    location.pathname === '/login' ? 'text-pastel-pink font-semibold' : ''
+                  }`}
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Sign In / Register

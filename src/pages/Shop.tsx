@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
@@ -7,8 +6,8 @@ import StyleBot from '@/components/StyleBot';
 import ProductCard, { Product } from '@/components/ProductCard';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import BackButton from '@/components/ui/back-button';
 
-// Generate a large set of sample products for display
 const generateProducts = (count: number, category?: string): Product[] => {
   const categories = ['Dresses', 'Tops', 'Bottoms', 'Accessories'];
   const selectedCategory = category || 'All';
@@ -70,13 +69,11 @@ const Shop = () => {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
 
   useEffect(() => {
-    // Generate 50 products when the component mounts
     const allProducts = generateProducts(50);
     setProducts(allProducts);
   }, []);
 
   useEffect(() => {
-    // Filter products based on category or search query
     let filtered = [...products];
     
     if (categoryName) {
@@ -115,15 +112,18 @@ const Shop = () => {
       <Navbar />
       <main className="flex-grow py-12">
         <div className="container mx-auto px-4">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2">
-              {categoryName ? 
-                `${categoryName.charAt(0).toUpperCase() + categoryName.slice(1)}` : 
-                searchQuery ? `Search Results for "${searchQuery}"` : "All Products"}
-            </h1>
-            <p className="text-muted-foreground">
-              {filteredProducts.length} products found
-            </p>
+          <div className="flex items-center mb-8">
+            <BackButton className="mr-3" />
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">
+                {categoryName ? 
+                  `${categoryName.charAt(0).toUpperCase() + categoryName.slice(1)}` : 
+                  searchQuery ? `Search Results for "${searchQuery}"` : "All Products"}
+              </h1>
+              <p className="text-muted-foreground">
+                {filteredProducts.length} products found
+              </p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
