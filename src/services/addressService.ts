@@ -3,11 +3,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { Address } from "@/types/supabase";
 
 export const addressService = {
-  async getAddresses(): Promise<Address[]> {
+  async getUserAddresses(): Promise<Address[]> {
+    const { data: user } = await supabase.auth.getUser();
+    
+    if (!user.user) {
+      return [];
+    }
+    
     const { data, error } = await supabase
       .from('addresses')
       .select('*')
-      .order('is_default', { ascending: false });
+      .eq('user_id', user.user.id);
     
     if (error) {
       console.error('Error fetching addresses:', error);
@@ -17,45 +23,41 @@ export const addressService = {
     return data || [];
   },
   
-  async getAddressById(id: string): Promise<Address | null> {
+  async getAddressById(addressId: string): Promise<Address | null> {
+    const { data: user } = await supabase.auth.getUser();
+    
+    if (!user.user) {
+      return null;
+    }
+    
     const { data, error } = await supabase
       .from('addresses')
       .select('*')
-      .eq('id', id)
-      .single();
+      .eq('id', addressId)
+      .eq('user_id', user.user.id)
+      .maybeSingle();
     
     if (error) {
-      console.error(`Error fetching address with id ${id}:`, error);
+      console.error('Error fetching address:', error);
       throw error;
     }
     
     return data;
   },
   
-  async getDefaultAddress(): Promise<Address | null> {
-    const { data, error } = await supabase
-      .from('addresses')
-      .select('*')
-      .eq('is_default', true)
-      .limit(1)
-      .single();
+  async createAddress(address: Omit<Address, "id" | "created_at" | "updated_at" | "user_id">): Promise<Address | null> {
+    const { data: user } = await supabase.auth.getUser();
     
-    if (error) {
-      // If no default address is found, return null without throwing an error
-      if (error.code === 'PGRST116') {
-        return null;
-      }
-      console.error('Error fetching default address:', error);
-      throw error;
+    if (!user.user) {
+      return null;
     }
     
-    return data;
-  },
-  
-  async createAddress(address: Omit<Address, 'id' | 'user_id' | 'created_at' | 'updated_at'>): Promise<Address> {
     const { data, error } = await supabase
       .from('addresses')
-      .insert(address)
+      .insert({
+        ...address,
+        user_id: user.user.id
+      })
       .select()
       .single();
     
@@ -67,54 +69,70 @@ export const addressService = {
     return data;
   },
   
-  async updateAddress(id: string, address: Partial<Address>): Promise<Address> {
+  async updateAddress(addressId: string, address: Partial<Address>): Promise<Address | null> {
+    const { data: user } = await supabase.auth.getUser();
+    
+    if (!user.user) {
+      return null;
+    }
+    
     const { data, error } = await supabase
       .from('addresses')
       .update(address)
-      .eq('id', id)
+      .eq('id', addressId)
+      .eq('user_id', user.user.id)
       .select()
       .single();
     
     if (error) {
-      console.error(`Error updating address with id ${id}:`, error);
+      console.error('Error updating address:', error);
       throw error;
     }
     
     return data;
   },
   
-  async deleteAddress(id: string): Promise<void> {
+  async deleteAddress(addressId: string): Promise<void> {
+    const { data: user } = await supabase.auth.getUser();
+    
+    if (!user.user) {
+      return;
+    }
+    
     const { error } = await supabase
       .from('addresses')
       .delete()
-      .eq('id', id);
+      .eq('id', addressId)
+      .eq('user_id', user.user.id);
     
     if (error) {
-      console.error(`Error deleting address with id ${id}:`, error);
+      console.error('Error deleting address:', error);
       throw error;
     }
   },
   
-  async setDefaultAddress(id: string): Promise<void> {
-    // First, set all addresses to non-default
-    const { error: updateError } = await supabase
-      .from('addresses')
-      .update({ is_default: false })
-      .not('id', 'eq', id);
+  async setDefaultAddress(addressId: string): Promise<void> {
+    const { data: user } = await supabase.auth.getUser();
     
-    if (updateError) {
-      console.error('Error resetting default addresses:', updateError);
-      throw updateError;
+    if (!user.user) {
+      return;
     }
     
-    // Then set the selected address as default
+    // First, unset any current default
+    await supabase
+      .from('addresses')
+      .update({ is_default: false })
+      .eq('user_id', user.user.id);
+    
+    // Then set the new default
     const { error } = await supabase
       .from('addresses')
       .update({ is_default: true })
-      .eq('id', id);
+      .eq('id', addressId)
+      .eq('user_id', user.user.id);
     
     if (error) {
-      console.error(`Error setting address ${id} as default:`, error);
+      console.error('Error setting default address:', error);
       throw error;
     }
   }

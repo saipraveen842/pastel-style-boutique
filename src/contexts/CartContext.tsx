@@ -1,8 +1,9 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
-interface CartItem {
+export interface CartItem {
   id: number;
   name: string;
   price: number;
@@ -13,189 +14,108 @@ interface CartItem {
 }
 
 interface CartContextType {
-  cartItems: CartItem[];
-  addToCart: (item: CartItem) => void;
-  removeFromCart: (id: number) => void;
-  updateQuantity: (id: number, quantityChange: number) => void;
+  items: CartItem[];
+  addToCart: (item: CartItem, quantity?: number) => void;
+  removeFromCart: (itemId: number) => void;
+  updateQuantity: (itemId: number, quantity: number) => void;
   clearCart: () => void;
-  getTotalItems: () => number;
+  totalItems: number;
+  totalPrice: number;
 }
 
-const CartContext = createContext<CartContextType | undefined>(undefined);
+const CartContext = createContext<CartContextType>({
+  items: [],
+  addToCart: () => {},
+  removeFromCart: () => {},
+  updateQuantity: () => {},
+  clearCart: () => {},
+  totalItems: 0,
+  totalPrice: 0,
+});
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const { user } = useAuth();
+  const [items, setItems] = useState<CartItem[]>([]);
+  const { user, isAuthenticated } = useAuth();
 
-  // Load cart items from localStorage or Supabase when component mounts
+  // Load cart from localStorage on initial load
   useEffect(() => {
-    const loadCart = async () => {
-      if (user) {
-        // Load cart from Supabase if user is logged in
-        try {
-          // First, check if we have a cart table. If not, we'll just use localStorage.
-          const { data: existingCarts, error: checkError } = await supabase
-            .from('carts')
-            .select('*')
-            .eq('user_id', user.id);
-            
-          if (checkError) {
-            console.error('Error checking cart in Supabase:', checkError);
-            loadFromLocalStorage();
-            return;
-          }
-            
-          if (existingCarts && existingCarts.length > 0) {
-            const cartData = existingCarts[0].items;
-            setCartItems(cartData);
-          } else {
-            loadFromLocalStorage();
-          }
-        } catch (error) {
-          console.error('Error loading cart from Supabase:', error);
-          loadFromLocalStorage();
-        }
-      } else {
-        loadFromLocalStorage();
-      }
-    };
-    
-    const loadFromLocalStorage = () => {
-      const savedCart = localStorage.getItem('cartItems');
-      if (savedCart) {
-        try {
-          setCartItems(JSON.parse(savedCart));
-        } catch (error) {
-          console.error('Error parsing cart from localStorage:', error);
-          setCartItems([]);
-        }
-      }
-    };
-    
-    loadCart();
-  }, [user]);
-  
-  // Save cart items to localStorage and Supabase (if user is logged in)
-  useEffect(() => {
-    // Always save to localStorage as a fallback
-    localStorage.setItem('cartItems', JSON.stringify(cartItems));
-    
-    // If user is logged in, sync with Supabase
-    const syncWithSupabase = async () => {
-      if (!user) return;
-      
+    const savedCart = localStorage.getItem('cart');
+    if (savedCart) {
       try {
-        // Check if we can access the carts table (it might not exist in all implementations)
-        const { error: checkError } = await supabase
-          .from('carts')
-          .select('id')
-          .limit(1);
-          
-        if (checkError) {
-          // If we can't access the table, just use localStorage only
-          return;
-        }
-        
-        // Check if user already has a cart
-        const { data: existingCart, error: getError } = await supabase
-          .from('carts')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
-          
-        if (getError && getError.code !== 'PGRST116') {
-          console.error('Error checking existing cart:', getError);
-          return;
-        }
-        
-        if (existingCart) {
-          // Update existing cart
-          const { error: updateError } = await supabase
-            .from('carts')
-            .update({ items: cartItems, updated_at: new Date().toISOString() })
-            .eq('id', existingCart.id);
-            
-          if (updateError) {
-            console.error('Error updating cart in Supabase:', updateError);
-          }
-        } else {
-          // Create new cart
-          const { error: insertError } = await supabase
-            .from('carts')
-            .insert({ user_id: user.id, items: cartItems });
-            
-          if (insertError) {
-            console.error('Error creating cart in Supabase:', insertError);
-          }
-        }
+        setItems(JSON.parse(savedCart));
       } catch (error) {
-        console.error('Error syncing cart with Supabase:', error);
+        console.error('Error parsing cart from localStorage:', error);
+        localStorage.removeItem('cart');
       }
-    };
-    
-    // Only run this if we have items in the cart and after initial render
-    if (cartItems.length > 0) {
-      syncWithSupabase();
     }
-  }, [cartItems, user]);
+  }, []);
 
-  // Add item to cart
-  const addToCart = (item: CartItem) => {
-    setCartItems((prevItems) => {
-      const existingItemIndex = prevItems.findIndex((cartItem) => cartItem.id === item.id && cartItem.size === item.size && cartItem.color === item.color);
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('cart', JSON.stringify(items));
+  }, [items]);
 
-      if (existingItemIndex > -1) {
+  const addToCart = (item: CartItem, quantity = 1) => {
+    setItems(prevItems => {
+      const existingItemIndex = prevItems.findIndex(i => 
+        i.id === item.id && i.size === item.size && i.color === item.color
+      );
+      
+      if (existingItemIndex !== -1) {
+        // Item already exists, update quantity
         const newItems = [...prevItems];
-        newItems[existingItemIndex].quantity += item.quantity;
+        newItems[existingItemIndex].quantity += quantity;
         return newItems;
       } else {
-        return [...prevItems, item];
+        // Add new item
+        return [...prevItems, { ...item, quantity }];
       }
     });
   };
 
-  // Remove item from cart
-  const removeFromCart = (id: number) => {
-    setCartItems((prevItems) => prevItems.filter((item) => item.id !== id));
+  const removeFromCart = (itemId: number) => {
+    setItems(prevItems => prevItems.filter(item => item.id !== itemId));
   };
 
-  // Update quantity of an item
-  const updateQuantity = (id: number, quantityChange: number) => {
-    setCartItems((prevItems) => {
-      return prevItems.map((item) => {
-        if (item.id === id) {
-          const newQuantity = item.quantity + quantityChange;
-          return { ...item, quantity: newQuantity > 0 ? newQuantity : 1 };
-        }
-        return item;
-      });
-    });
+  const updateQuantity = (itemId: number, quantity: number) => {
+    if (quantity <= 0) {
+      removeFromCart(itemId);
+      return;
+    }
+    
+    setItems(prevItems => 
+      prevItems.map(item => 
+        item.id === itemId ? { ...item, quantity } : item
+      )
+    );
   };
 
-  // Clear the entire cart
   const clearCart = () => {
-    setCartItems([]);
+    setItems([]);
   };
 
-  // Calculate total items in cart
-  const getTotalItems = () => {
-    return cartItems.reduce((total, item) => total + item.quantity, 0);
-  };
+  const totalItems = items.reduce((total, item) => total + item.quantity, 0);
+  
+  const totalPrice = items.reduce(
+    (total, item) => total + item.price * item.quantity, 
+    0
+  );
 
   return (
-    <CartContext.Provider
-      value={{
-        cartItems,
-        addToCart,
-        removeFromCart,
-        updateQuantity,
-        clearCart,
-        getTotalItems,
-      }}
-    >
+    <CartContext.Provider value={{
+      items,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      clearCart,
+      totalItems,
+      totalPrice
+    }}>
       {children}
     </CartContext.Provider>
   );
 };
 
-export const useCart = () => useContext(CartContext);
+export const useCart = () => {
+  return useContext(CartContext);
+};

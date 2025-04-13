@@ -61,7 +61,8 @@ const ProductDetail = () => {
         image: product.image,
         size: selectedSize || 'One Size',
         color: selectedColor || 'Default',
-      }, quantity);
+        quantity: quantity
+      });
       
       toast({
         title: "Added to cart",
@@ -163,6 +164,7 @@ const ProductDetail = () => {
                 )}
               </div>
               
+              {/* Size Selection */}
               {product.sizes && product.sizes.length > 0 && (
                 <div>
                   <h3 className="font-medium mb-2">Size</h3>
@@ -184,6 +186,7 @@ const ProductDetail = () => {
                 </div>
               )}
               
+              {/* Color Selection */}
               {product.colors && product.colors.length > 0 && (
                 <div>
                   <h3 className="font-medium mb-2">Color</h3>
@@ -205,6 +208,7 @@ const ProductDetail = () => {
                 </div>
               )}
               
+              {/* Quantity Selection */}
               <div>
                 <h3 className="font-medium mb-2">Quantity</h3>
                 <div className="flex items-center">
@@ -226,22 +230,24 @@ const ProductDetail = () => {
                 </div>
               </div>
               
+              {/* Action Buttons */}
               <div className="pt-4 space-y-3">
                 <Button 
-                  className="w-full bg-pastel-pink hover:bg-pastel-pink/90 text-white"
+                  className="w-full bg-[#222222] hover:bg-[#333333] text-white"
                   onClick={handleAddToCart}
                 >
                   Add to Cart
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="w-full border-pastel-pink text-pastel-pink hover:bg-pastel-pink/10"
+                  className="w-full border-[#222222] text-[#222222] hover:bg-[#2222221a]"
                   onClick={handleBuyNow}
                 >
                   Buy Now
                 </Button>
               </div>
               
+              {/* Product Description */}
               <div className="border-t border-gray-200 pt-6">
                 <h3 className="font-medium mb-2">Product Description</h3>
                 <p className="text-muted-foreground">

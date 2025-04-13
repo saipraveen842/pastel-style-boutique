@@ -1,12 +1,20 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { Order, OrderItem } from "@/types/supabase";
+import { CartItem } from "@/contexts/CartContext";
 
 export const orderService = {
-  async getOrders(): Promise<Order[]> {
+  async getUserOrders(): Promise<Order[]> {
+    const { data: user } = await supabase.auth.getUser();
+    
+    if (!user.user) {
+      return [];
+    }
+    
     const { data, error } = await supabase
       .from('orders')
       .select('*')
+      .eq('user_id', user.user.id)
       .order('created_at', { ascending: false });
     
     if (error) {
@@ -17,69 +25,80 @@ export const orderService = {
     return data || [];
   },
   
-  async getOrderById(id: string): Promise<Order | null> {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('id', id)
-      .single();
+  async getOrderById(orderId: string): Promise<{order: Order, items: OrderItem[]} | null> {
+    const { data: user } = await supabase.auth.getUser();
     
-    if (error) {
-      console.error(`Error fetching order with id ${id}:`, error);
-      throw error;
+    if (!user.user) {
+      return null;
     }
     
-    return data;
-  },
-  
-  async getOrderItems(orderId: string): Promise<OrderItem[]> {
-    const { data, error } = await supabase
+    // Fetch the order
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('id', orderId)
+      .eq('user_id', user.user.id)
+      .maybeSingle();
+    
+    if (orderError || !order) {
+      console.error('Error fetching order:', orderError);
+      throw orderError;
+    }
+    
+    // Fetch the order items
+    const { data: items, error: itemsError } = await supabase
       .from('order_items')
       .select('*')
       .eq('order_id', orderId);
     
-    if (error) {
-      console.error(`Error fetching items for order ${orderId}:`, error);
-      throw error;
+    if (itemsError) {
+      console.error('Error fetching order items:', itemsError);
+      throw itemsError;
     }
     
-    return data || [];
+    return {
+      order,
+      items: items || []
+    };
   },
   
-  async createOrder(
-    addressId: string, 
-    totalAmount: number, 
-    items: Array<{ 
-      product_id: number; 
-      quantity: number; 
-      price: number; 
-      size?: string; 
-      color?: string; 
-    }>
-  ): Promise<Order> {
-    // Start a transaction by using a single connection
+  async createOrder(addressId: string, cartItems: CartItem[]): Promise<Order | null> {
+    const { data: user } = await supabase.auth.getUser();
+    
+    if (!user.user) {
+      return null;
+    }
+    
+    // Calculate total amount
+    const totalAmount = cartItems.reduce(
+      (total, item) => total + (item.price * item.quantity), 
+      0
+    );
+    
+    // Start a transaction by inserting the order first
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert({
+        user_id: user.user.id,
         address_id: addressId,
         total_amount: totalAmount
       })
       .select()
       .single();
     
-    if (orderError) {
+    if (orderError || !order) {
       console.error('Error creating order:', orderError);
       throw orderError;
     }
     
-    // Create order items
-    const orderItems = items.map(item => ({
+    // Then insert all order items
+    const orderItems = cartItems.map(item => ({
       order_id: order.id,
-      product_id: item.product_id,
+      product_id: item.id,
       quantity: item.quantity,
       price: item.price,
-      size: item.size || null,
-      color: item.color || null
+      size: item.size,
+      color: item.color
     }));
     
     const { error: itemsError } = await supabase
@@ -88,43 +107,9 @@ export const orderService = {
     
     if (itemsError) {
       console.error('Error creating order items:', itemsError);
-      // If items fail, we should ideally delete the order too in a real transaction,
-      // but Supabase doesn't support transactions from the client SDK.
       throw itemsError;
     }
     
     return order;
-  },
-  
-  async updateOrderStatus(id: string, status: string): Promise<Order> {
-    const { data, error } = await supabase
-      .from('orders')
-      .update({ order_status: status, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (error) {
-      console.error(`Error updating status for order ${id}:`, error);
-      throw error;
-    }
-    
-    return data;
-  },
-  
-  async updatePaymentStatus(id: string, status: string): Promise<Order> {
-    const { data, error } = await supabase
-      .from('orders')
-      .update({ payment_status: status, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (error) {
-      console.error(`Error updating payment status for order ${id}:`, error);
-      throw error;
-    }
-    
-    return data;
   }
 };

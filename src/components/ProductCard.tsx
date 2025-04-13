@@ -38,6 +38,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, onBuyNo
       image: product.image,
       size: product.sizes ? product.sizes[0] : 'One Size',
       color: product.colors ? product.colors[0] : 'Default',
+      quantity: 1
     });
     
     toast({
@@ -56,6 +57,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, onBuyNo
       image: product.image,
       size: product.sizes ? product.sizes[0] : 'One Size',
       color: product.colors ? product.colors[0] : 'Default',
+      quantity: 1
     });
     
     navigate('/checkout');
@@ -112,7 +114,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, onBuyNo
           </Button>
           <Button 
             size="sm" 
-            className="flex-1 bg-pastel-pink text-white hover:bg-pastel-pink/90 text-xs"
+            className="flex-1 bg-[#222222] text-white hover:bg-[#333333] text-xs"
             onClick={handleBuyNow}
           >
             Buy Now
