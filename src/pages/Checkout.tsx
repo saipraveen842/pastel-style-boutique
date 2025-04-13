@@ -38,7 +38,7 @@ type FormValues = z.infer<typeof formSchema>;
 const Checkout = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { items, clearCart } = useCart();
+  const { cartItems, clearCart } = useCart();
   const [step, setStep] = useState<'shipping' | 'payment' | 'confirmation'>('shipping');
   const { user } = useAuth();
   
@@ -47,7 +47,7 @@ const Checkout = () => {
   const [loadingAddresses, setLoadingAddresses] = useState(true);
 
   // Calculate order summary
-  const subtotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const shipping = subtotal > 100 ? 0 : 5.99;
   const tax = subtotal * 0.07; // 7% tax
   const total = subtotal + shipping + tax;
@@ -76,7 +76,7 @@ const Checkout = () => {
     const loadAddresses = async () => {
       try {
         setLoadingAddresses(true);
-        const addresses = await addressService.getUserAddresses();
+        const addresses = await addressService.getAddresses();
         setSavedAddresses(addresses);
         
         // If there's a default address, use it
@@ -139,7 +139,17 @@ const Checkout = () => {
         
         if (user && addressId) {
           // Create the order in Supabase
-          await orderService.createOrder(addressId, items);
+          await orderService.createOrder(
+            addressId,
+            total,
+            cartItems.map(item => ({
+              product_id: item.id,
+              quantity: item.quantity,
+              price: item.price,
+              size: item.size,
+              color: item.color
+            }))
+          );
         }
         
         toast({
@@ -447,7 +457,7 @@ const Checkout = () => {
                 <h2 className="text-xl font-semibold mb-6">Order Summary</h2>
                 
                 <div className="space-y-4 mb-6">
-                  {items.map((item) => (
+                  {cartItems.map((item) => (
                     <div key={item.id} className="flex items-start space-x-4">
                       <div className="w-16 h-16 rounded overflow-hidden flex-shrink-0">
                         <img 
