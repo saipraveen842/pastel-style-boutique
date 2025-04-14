@@ -158,12 +158,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       
-      const { error } = await supabase.auth.admin.deleteUser(user.id);
+      const { error } = await supabase.rpc('delete_user');
       
-      if (error) {
-        const { error: deleteError } = await supabase.rpc('delete_user');
-        if (deleteError) throw deleteError;
-      }
+      if (error) throw error;
       
       toast({
         title: 'Account deleted',
