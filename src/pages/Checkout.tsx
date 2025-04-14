@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,6 +16,7 @@ import { addressService } from '@/services/addressService';
 import { orderService } from '@/services/orderService';
 import { Address } from '@/types/supabase';
 import { useAuth } from '@/hooks/useAuth';
+import { paymentService } from '@/services/paymentService';
 
 // Form validation schema
 const formSchema = z.object({
@@ -103,6 +103,84 @@ const Checkout = () => {
     }
   }, [user, form]);
 
+  const initializeRazorpay = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handlePayment = async () => {
+    try {
+      // Create the order in Supabase
+      const order = await orderService.createOrder(addressId!, items);
+
+      const res = await paymentService.createPayment(
+        order.id,
+        total
+      );
+
+      const options = {
+        key: "rzp_test_WyK93y9mvps7SN", // Replace with your Razorpay key ID
+        amount: res.razorpayOrder.amount,
+        currency: res.razorpayOrder.currency,
+        name: "Your Store Name",
+        description: "Order Payment",
+        order_id: res.razorpayOrder.id,
+        handler: async (response: any) => {
+          try {
+            await paymentService.updatePaymentStatus(
+              response.razorpay_payment_id,
+              response.razorpay_order_id,
+              'completed'
+            );
+            
+            toast({
+              title: "Payment Successful",
+              description: "Your order has been placed successfully!",
+            });
+            
+            // Clear cart and redirect to confirmation
+            clearCart();
+            setStep('confirmation');
+          } catch (error) {
+            console.error('Error processing payment:', error);
+            toast({
+              title: "Payment Error",
+              description: "There was an error processing your payment. Please try again.",
+              variant: "destructive",
+            });
+          }
+        },
+        prefill: {
+          name: `${form.getValues('firstName')} ${form.getValues('lastName')}`,
+          email: form.getValues('email'),
+        },
+        theme: {
+          color: "#f43f5e",
+        },
+      };
+
+      const razorpay = new (window as any).Razorpay(options);
+      razorpay.open();
+    } catch (error) {
+      console.error('Error initializing payment:', error);
+      toast({
+        title: "Payment Error",
+        description: "There was an error initializing the payment. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Add useEffect to load Razorpay script
+  useEffect(() => {
+    initializeRazorpay();
+  }, []);
+
   // Handle form submission
   const onSubmit = async (data: FormValues) => {
     if (step === 'shipping') {
@@ -137,27 +215,14 @@ const Checkout = () => {
       setStep('payment');
     } else if (step === 'payment') {
       try {
-        // Process the payment (in a real app, this would call a payment processor)
-        // For this demo, we'll just create the order
-        
-        if (user && addressId) {
-          // Create the order in Supabase
-          await orderService.createOrder(addressId, items);
-        }
-        
-        toast({
-          title: "Order placed successfully!",
-          description: "Your order has been confirmed and will be shipped soon.",
-        });
-        
-        setStep('confirmation');
-        clearCart();
+        // Instead of directly creating the order, first handle the payment
+        await handlePayment();
       } catch (error) {
-        console.error('Error creating order:', error);
+        console.error('Error during checkout:', error);
         toast({
-          title: 'Order Failed',
-          description: 'There was an error processing your order. Please try again.',
-          variant: 'destructive',
+          title: "Checkout Error",
+          description: "There was an error processing your order. Please try again.",
+          variant: "destructive",
         });
       }
     }
