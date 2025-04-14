@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +11,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, userData: { firstName: string; lastName: string }) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -25,7 +25,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
 
   useEffect(() => {
-    // Set up the auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
         console.log('Auth state changed:', event, currentSession?.user?.email);
@@ -33,7 +32,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(currentSession?.user ?? null);
         setLoading(false);
         
-        // Use setTimeout to avoid deadlocks with Supabase auth
         if (event === 'SIGNED_OUT') {
           setTimeout(() => {
             navigate('/login');
@@ -46,7 +44,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // Then check for existing session
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
       console.log('Existing session check:', currentSession?.user?.email);
       setSession(currentSession);
@@ -148,6 +145,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const deleteAccount = async () => {
+    try {
+      setLoading(true);
+      
+      if (!user) {
+        toast({
+          title: 'Error',
+          description: 'You must be logged in to delete your account.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      const { error } = await supabase.auth.admin.deleteUser(user.id);
+      
+      if (error) {
+        const { error: deleteError } = await supabase.rpc('delete_user');
+        if (deleteError) throw deleteError;
+      }
+      
+      toast({
+        title: 'Account deleted',
+        description: 'Your account has been successfully deleted.',
+      });
+      
+      setUser(null);
+      setSession(null);
+      
+      navigate('/');
+    } catch (error: any) {
+      console.error('Delete account error:', error);
+      toast({
+        title: 'Delete account failed',
+        description: error.message || 'An error occurred while deleting your account.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const value = {
     user,
     session,
@@ -155,6 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signUp,
     signIn,
     signOut,
+    deleteAccount,
     isAuthenticated: !!user,
   };
 

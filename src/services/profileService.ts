@@ -44,5 +44,43 @@ export const profileService = {
     }
     
     return data;
+  },
+  
+  async createProfileIfNotExists(userData: { firstName?: string; lastName?: string; email: string }): Promise<Profile | null> {
+    const { data: user } = await supabase.auth.getUser();
+    
+    if (!user.user) {
+      return null;
+    }
+    
+    // Check if profile exists
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.user.id)
+      .maybeSingle();
+    
+    if (existingProfile) {
+      return existingProfile;
+    }
+    
+    // Create new profile if it doesn't exist
+    const { data, error } = await supabase
+      .from('profiles')
+      .insert({
+        id: user.user.id,
+        first_name: userData.firstName || null,
+        last_name: userData.lastName || null,
+        email: userData.email
+      })
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error creating profile:', error);
+      throw error;
+    }
+    
+    return data;
   }
 };

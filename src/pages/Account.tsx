@@ -10,15 +10,27 @@ import { orderService } from '@/services/orderService';
 import { Order, Address } from '@/types/supabase';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
 
 const Account = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, deleteAccount } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('profile');
   const [orders, setOrders] = useState<Order[]>([]);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -57,6 +69,17 @@ const Account = () => {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    try {
+      setIsDeleting(true);
+      await deleteAccount();
+    } catch (error) {
+      console.error("Delete account error:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -76,14 +99,12 @@ const Account = () => {
     );
   }
 
-  
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <main className="flex-grow py-12 bg-background">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-[250px_1fr]">
-            {/* Account Sidebar for Desktop */}
             <div className="hidden lg:block">
               <div className="bg-white rounded-xl pastel-shadow p-6 sticky top-24">
                 <div className="flex items-center space-x-3 pb-6 mb-6 border-b border-pastel-pink/10">
@@ -149,15 +170,43 @@ const Account = () => {
                 <div className="mt-10 pt-6 border-t border-pastel-pink/10">
                   <Button 
                     onClick={handleLogout}
-                    className="w-full bg-[#333] text-white hover:bg-[#222]"
+                    className="w-full bg-[#333] text-white hover:bg-[#222] mb-2"
                   >
                     Sign Out
                   </Button>
+                  
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="destructive"
+                        className="w-full"
+                      >
+                        Delete Account
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete your account and remove all your data from our servers.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={handleDeleteAccount}
+                          disabled={isDeleting}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          {isDeleting ? "Deleting..." : "Delete Account"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
             </div>
             
-            {/* Mobile Tabs Navigation */}
             <div className="lg:hidden mb-6">
               <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid grid-cols-3 h-auto">
@@ -177,9 +226,7 @@ const Account = () => {
               </Tabs>
             </div>
             
-            {/* Content Area */}
             <div className="bg-white rounded-xl pastel-shadow p-6">
-              {/* Profile Content */}
               {activeTab === 'profile' && (
                 <div>
                   <h1 className="text-2xl font-bold mb-6">My Profile</h1>
@@ -223,7 +270,6 @@ const Account = () => {
                 </div>
               )}
               
-              {/* Orders Content */}
               {activeTab === 'orders' && (
                 <div>
                   <h1 className="text-2xl font-bold mb-6">My Orders</h1>
@@ -282,7 +328,6 @@ const Account = () => {
                 </div>
               )}
               
-              {/* Other content tabs would go here */}
               {activeTab === 'addresses' && (
                 <div>
                   <h1 className="text-2xl font-bold mb-6">My Addresses</h1>
@@ -357,7 +402,6 @@ const Account = () => {
                 </div>
               )}
               
-              {/* Wishlist, Payments, Settings tabs would be implemented similarly */}
               {(activeTab === 'wishlist' || activeTab === 'payments' || activeTab === 'settings') && (
                 <div className="text-center py-12">
                   <h1 className="text-2xl font-bold mb-6">
