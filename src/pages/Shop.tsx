@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
@@ -47,13 +48,21 @@ const generateProducts = (count: number, category?: string): Product[] => {
     const categoryImages = images[productCategory as keyof typeof images];
     const randomImage = categoryImages[Math.floor(Math.random() * categoryImages.length)];
     
+    const isSale = selectedCategory === 'sale' || (Math.random() > 0.8 && selectedCategory !== 'new-arrivals');
+    const isNew = selectedCategory === 'new-arrivals' || (Math.random() > 0.8 && !isSale);
+    
+    const originalPrice = parseFloat((19.99 + Math.random() * 50).toFixed(2));
+    const salePrice = isSale ? parseFloat((originalPrice * 0.5).toFixed(2)) : undefined;
+    
     return {
       id: i + 1,
       name: `${productCategory} Item ${i + 1}`,
-      price: parseFloat((19.99 + Math.random() * 50).toFixed(2)),
+      price: originalPrice,
+      salePrice: salePrice,
       image: randomImage,
       category: productCategory,
-      isNew: Math.random() > 0.8,
+      isNew: isNew,
+      isSale: isSale,
       isFeatured: Math.random() > 0.9
     };
   });
@@ -76,7 +85,20 @@ const Shop = () => {
   useEffect(() => {
     let filtered = [...products];
     
-    if (categoryName) {
+    if (categoryName === 'sale') {
+      // For sale category, show items with 50% off
+      filtered = filtered.map(product => ({
+        ...product,
+        isSale: true,
+        salePrice: parseFloat((product.price * 0.5).toFixed(2))
+      }));
+    } else if (categoryName === 'new-arrivals') {
+      // For new arrivals, mark all as new
+      filtered = filtered.map(product => ({
+        ...product,
+        isNew: true
+      }));
+    } else if (categoryName) {
       filtered = filtered.filter(product => 
         product.category.toLowerCase() === categoryName.toLowerCase()
       );
@@ -116,15 +138,41 @@ const Shop = () => {
             <BackButton className="mr-3" />
             <div>
               <h1 className="text-3xl font-bold text-foreground mb-2">
-                {categoryName ? 
-                  `${categoryName.charAt(0).toUpperCase() + categoryName.slice(1)}` : 
-                  searchQuery ? `Search Results for "${searchQuery}"` : "All Products"}
+                {categoryName === 'sale' ? 
+                  'Sale - 50% Off Everything!' : 
+                  categoryName === 'new-arrivals' ?
+                  'New Arrivals - Fresh Styles' :
+                  categoryName ? 
+                    `${categoryName.charAt(0).toUpperCase() + categoryName.slice(1)}` : 
+                    searchQuery ? `Search Results for "${searchQuery}"` : "All Products"}
               </h1>
               <p className="text-muted-foreground">
                 {filteredProducts.length} products found
               </p>
             </div>
           </div>
+
+          {categoryName === 'sale' && (
+            <div className="bg-pastel-yellow/20 p-6 rounded-xl mb-8 text-center">
+              <h2 className="text-2xl font-bold text-primary-foreground mb-2">
+                FLASH SALE! 50% OFF EVERYTHING
+              </h2>
+              <p className="text-muted-foreground mb-2">
+                Limited time offer. No code needed - discount applied automatically.
+              </p>
+            </div>
+          )}
+
+          {categoryName === 'new-arrivals' && (
+            <div className="bg-pastel-pink/20 p-6 rounded-xl mb-8 text-center">
+              <h2 className="text-2xl font-bold text-primary-foreground mb-2">
+                Just Arrived! Shop The Latest Styles
+              </h2>
+              <p className="text-muted-foreground mb-2">
+                Be the first to wear this season's newest trends.
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {filteredProducts.map(product => (

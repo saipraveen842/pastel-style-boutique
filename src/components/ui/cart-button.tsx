@@ -5,7 +5,12 @@ import { Link } from 'react-router-dom';
 import { useCart } from '@/contexts/CartContext';
 
 const CartButton = () => {
-  const { totalItems } = useCart();
+  const { items } = useCart();
+  
+  // Calculate total items in cart
+  const totalItems = items && items.length > 0 
+    ? items.reduce((sum, item) => sum + item.quantity, 0)
+    : 0;
 
   return (
     <Link to="/cart" className="relative p-2 hover:bg-pastel-pink/10 rounded-full transition-colors">
