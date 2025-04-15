@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { MapPin, CreditCard, ShoppingBag, Check, ArrowLeft } from 'lucide-react';
+import { MapPin, CreditCard, ShoppingBag, Check, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -45,6 +46,7 @@ const Checkout = () => {
   const [addressId, setAddressId] = useState<string | null>(null);
   const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const subtotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const shipping = subtotal > 100 ? 0 : 5.99;
@@ -109,7 +111,10 @@ const Checkout = () => {
 
   const handlePayment = async () => {
     try {
+      setIsProcessing(true);
       console.log("Starting payment process...");
+      
+      await initializeRazorpay();
       
       const order = await orderService.createOrder(addressId!, items);
       console.log("Order created:", order);
@@ -150,6 +155,8 @@ const Checkout = () => {
               description: "There was an error processing your payment. Please try again.",
               variant: "destructive",
             });
+          } finally {
+            setIsProcessing(false);
           }
         },
         prefill: {
@@ -167,6 +174,7 @@ const Checkout = () => {
               title: "Payment Cancelled",
               description: "You have cancelled the payment. Your order is still pending.",
             });
+            setIsProcessing(false);
           }
         }
       };
@@ -181,6 +189,7 @@ const Checkout = () => {
         description: "There was an error initializing the payment. Please try again.",
         variant: "destructive",
       });
+      setIsProcessing(false);
     }
   };
 
@@ -192,6 +201,7 @@ const Checkout = () => {
     if (step === 'shipping') {
       if (user && !addressId) {
         try {
+          setIsProcessing(true);
           const newAddress = await addressService.createAddress({
             street: data.address,
             city: data.city,
@@ -214,6 +224,8 @@ const Checkout = () => {
             description: 'Failed to save your address, but you can continue checkout.',
             variant: 'destructive',
           });
+        } finally {
+          setIsProcessing(false);
         }
       }
       
@@ -242,6 +254,24 @@ const Checkout = () => {
       navigate('/cart');
     }
   };
+
+  if (items.length === 0 && step !== 'confirmation') {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-grow py-12 bg-background">
+          <div className="container mx-auto px-4 text-center">
+            <h1 className="text-2xl font-semibold mb-4">Your cart is empty</h1>
+            <p className="mb-6">You don't have any items in your cart to checkout.</p>
+            <Button onClick={() => navigate('/shop')} className="bg-primary text-white hover:bg-primary/90">
+              Continue Shopping
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -406,8 +436,19 @@ const Checkout = () => {
                             <ArrowLeft size={16} className="mr-2" />
                             Back to Cart
                           </Button>
-                          <Button type="submit" className="bg-primary text-white hover:bg-primary/90">
-                            Continue to Payment
+                          <Button 
+                            type="submit" 
+                            className="bg-primary text-white hover:bg-primary/90"
+                            disabled={isProcessing || !form.formState.isValid}
+                          >
+                            {isProcessing ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Processing...
+                              </>
+                            ) : (
+                              'Continue to Payment'
+                            )}
                           </Button>
                         </div>
                       </form>
@@ -482,8 +523,19 @@ const Checkout = () => {
                             <ArrowLeft size={16} className="mr-2" />
                             Back to Shipping
                           </Button>
-                          <Button type="submit" className="bg-primary text-white hover:bg-primary/90">
-                            Place Order
+                          <Button 
+                            type="submit" 
+                            className="bg-primary text-white hover:bg-primary/90"
+                            disabled={isProcessing || !form.formState.isValid}
+                          >
+                            {isProcessing ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Processing...
+                              </>
+                            ) : (
+                              'Place Order'
+                            )}
                           </Button>
                         </div>
                       </form>
