@@ -1,322 +1,32 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { MapPin, CreditCard, ShoppingBag, Check, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
-import { useCart } from '@/contexts/CartContext';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import BackButton from '@/components/ui/back-button';
-import { addressService } from '@/services/addressService';
-import { orderService } from '@/services/orderService';
-import { Address } from '@/types/supabase';
-import { useAuth } from '@/hooks/useAuth';
-import { paymentService } from '@/services/paymentService';
-
-const formSchema = z.object({
-  firstName: z.string().min(2, { message: "First name is required" }),
-  lastName: z.string().min(2, { message: "Last name is required" }),
-  email: z.string().email({ message: "Invalid email address" }),
-  phone: z.string().min(10, { message: "Valid phone number is required" }),
-  address: z.string().min(5, { message: "Address is required" }),
-  city: z.string().min(2, { message: "City is required" }),
-  state: z.string().min(2, { message: "State is required" }),
-  zipCode: z.string().min(5, { message: "Valid ZIP code is required" }),
-  cardNumber: z.string().min(16, { message: "Valid card number is required" }),
-  cardName: z.string().min(2, { message: "Name on card is required" }),
-  expDate: z.string().min(5, { message: "Expiration date is required" }),
-  cvv: z.string().min(3, { message: "CVV is required" }),
-});
-
-type FormValues = z.infer<typeof formSchema>;
+import { useCheckout } from '@/hooks/useCheckout';
+import CheckoutHeader from '@/components/checkout/CheckoutHeader';
+import ShippingForm from '@/components/checkout/ShippingForm';
+import PaymentForm from '@/components/checkout/PaymentForm';
+import OrderConfirmation from '@/components/checkout/OrderConfirmation';
+import OrderSummary from '@/components/checkout/OrderSummary';
 
 const Checkout = () => {
-  const { toast } = useToast();
   const navigate = useNavigate();
-  const { items, clearCart } = useCart();
-  const [step, setStep] = useState<'shipping' | 'payment' | 'confirmation'>('shipping');
-  const { user } = useAuth();
-  
-  const [addressId, setAddressId] = useState<string | null>(null);
-  const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
-  const [loadingAddresses, setLoadingAddresses] = useState(true);
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  const subtotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const shipping = subtotal > 100 ? 0 : 5.99;
-  const tax = subtotal * 0.07; // 7% tax
-  const total = subtotal + shipping + tax;
-
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      address: '',
-      city: '',
-      state: '',
-      zipCode: '',
-      cardNumber: '',
-      cardName: '',
-      expDate: '',
-      cvv: '',
-    },
-  });
-
-  // Set default values and validate shipping form when needed
-  useEffect(() => {
-    if (step === 'shipping') {
-      // Pre-fill form fields based on user data if available
-      if (user?.email) {
-        form.setValue('email', user.email);
-      }
-      
-      // Mark fields as touched to show validation errors
-      Object.keys(form.formState.touchedFields).forEach((fieldName) => {
-        form.trigger(fieldName as keyof FormValues);
-      });
-    }
-  }, [step, user, form]);
-
-  useEffect(() => {
-    const loadAddresses = async () => {
-      try {
-        setLoadingAddresses(true);
-        const addresses = await addressService.getUserAddresses();
-        setSavedAddresses(addresses);
-        
-        const defaultAddress = addresses.find(addr => addr.is_default);
-        if (defaultAddress) {
-          setAddressId(defaultAddress.id);
-          
-          form.setValue('address', defaultAddress.street);
-          form.setValue('city', defaultAddress.city);
-          form.setValue('state', defaultAddress.state);
-          form.setValue('zipCode', defaultAddress.zip_code);
-
-          // Trigger validation after setting values
-          form.trigger(['address', 'city', 'state', 'zipCode']);
-        }
-      } catch (error) {
-        console.error('Error loading addresses:', error);
-      } finally {
-        setLoadingAddresses(false);
-      }
-    };
-    
-    if (user) {
-      loadAddresses();
-    }
-  }, [user, form]);
-
-  const initializeRazorpay = () => {
-    return new Promise((resolve) => {
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      document.body.appendChild(script);
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-    });
-  };
-
-  const handlePayment = async () => {
-    try {
-      setIsProcessing(true);
-      console.log("Starting payment process...");
-      
-      const razorpayLoaded = await initializeRazorpay();
-      if (!razorpayLoaded) {
-        throw new Error("Razorpay SDK failed to load");
-      }
-      
-      const order = await orderService.createOrder(addressId!, items);
-      console.log("Order created:", order);
-
-      const res = await paymentService.createPayment(
-        order.id,
-        Math.round(total * 100) // Convert to paise/cents and ensure it's an integer
-      );
-      console.log("Payment initialized:", res);
-
-      const options = {
-        key: "rzp_test_WyK93y9mvps7SN",
-        amount: res.razorpayOrder.amount,
-        currency: res.razorpayOrder.currency || "INR",
-        name: "E-Commerce Store",
-        description: "Order Payment",
-        order_id: res.razorpayOrder.id,
-        handler: async function(response: any) {
-          try {
-            console.log("Payment successful, response:", response);
-            await paymentService.updatePaymentStatus(
-              response.razorpay_payment_id,
-              response.razorpay_order_id,
-              'completed'
-            );
-            
-            toast({
-              title: "Payment Successful",
-              description: "Your order has been placed successfully!",
-            });
-            
-            clearCart();
-            setStep('confirmation');
-          } catch (error) {
-            console.error('Error processing payment:', error);
-            toast({
-              title: "Payment Error",
-              description: "There was an error processing your payment. Please try again.",
-              variant: "destructive",
-            });
-          } finally {
-            setIsProcessing(false);
-          }
-        },
-        prefill: {
-          name: `${form.getValues('firstName')} ${form.getValues('lastName')}`,
-          email: form.getValues('email'),
-          contact: form.getValues('phone')
-        },
-        theme: {
-          color: "#f43f5e",
-        },
-        modal: {
-          ondismiss: function() {
-            console.log("Payment dismissed");
-            toast({
-              title: "Payment Cancelled",
-              description: "You have cancelled the payment. Your order is still pending.",
-            });
-            setIsProcessing(false);
-          }
-        }
-      };
-
-      console.log("Initializing Razorpay with options:", options);
-      const razorpayInstance = new (window as any).Razorpay(options);
-      razorpayInstance.open();
-    } catch (error) {
-      console.error('Error initializing payment:', error);
-      toast({
-        title: "Payment Error",
-        description: "There was an error initializing the payment. Please try again.",
-        variant: "destructive",
-      });
-      setIsProcessing(false);
-    }
-  };
-
-  // Initialize Razorpay on component mount
-  useEffect(() => {
-    initializeRazorpay();
-  }, []);
-
-  // Check form validity for shipping step
-  const isShippingFormValid = () => {
-    const { firstName, lastName, email, phone, address, city, state, zipCode } = form.getValues();
-    return (
-      firstName.length >= 2 &&
-      lastName.length >= 2 &&
-      email.includes('@') &&
-      phone.length >= 10 &&
-      address.length >= 5 &&
-      city.length >= 2 &&
-      state.length >= 2 &&
-      zipCode.length >= 5
-    );
-  };
-
-  const onSubmit = async (data: FormValues) => {
-    if (step === 'shipping') {
-      try {
-        // Validate the shipping form fields
-        const isValid = await form.trigger(['firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state', 'zipCode']);
-        
-        if (!isValid) {
-          console.log("Form validation failed", form.formState.errors);
-          toast({
-            title: "Please check your information",
-            description: "Some required fields are missing or invalid.",
-            variant: "destructive",
-          });
-          return;
-        }
-        
-        // If user is logged in but no address id, create a new address
-        if (user && !addressId) {
-          try {
-            setIsProcessing(true);
-            const newAddress = await addressService.createAddress({
-              street: data.address,
-              city: data.city,
-              state: data.state,
-              zip_code: data.zipCode,
-              is_default: savedAddresses.length === 0
-            });
-            
-            if (newAddress) {
-              setAddressId(newAddress.id);
-              toast({
-                title: 'Address saved',
-                description: 'Your address has been saved for future use.',
-              });
-            }
-          } catch (error) {
-            console.error('Error saving address:', error);
-            toast({
-              title: 'Error',
-              description: 'Failed to save your address, but you can continue checkout.',
-              variant: 'destructive',
-            });
-          } finally {
-            setIsProcessing(false);
-          }
-        }
-        
-        console.log("Moving to payment step");
-        setStep('payment');
-      } catch (error) {
-        console.error('Error in shipping step:', error);
-        toast({
-          title: "Error",
-          description: "There was an error processing your shipping information.",
-          variant: "destructive",
-        });
-        setIsProcessing(false);
-      }
-    } else if (step === 'payment') {
-      try {
-        console.log("Payment step submission, calling handlePayment()");
-        await handlePayment();
-      } catch (error) {
-        console.error('Error during checkout:', error);
-        toast({
-          title: "Checkout Error",
-          description: "There was an error processing your order. Please try again.",
-          variant: "destructive",
-        });
-        setIsProcessing(false);
-      }
-    }
-  };
-
-  const goBack = () => {
-    if (step === 'payment') {
-      setStep('shipping');
-    } else if (step === 'confirmation') {
-      navigate('/');
-    } else {
-      navigate('/cart');
-    }
-  };
+  const {
+    form,
+    step,
+    isProcessing,
+    items,
+    subtotal,
+    shipping,
+    tax,
+    total,
+    isShippingFormValid,
+    onSubmit,
+    goBack
+  } = useCheckout();
 
   if (items.length === 0 && step !== 'confirmation') {
     return (
@@ -347,336 +57,42 @@ const Checkout = () => {
             </div>
           )}
           
-          {/* Progress indicator */}
-          <div className="mb-8">
-            <div className="flex items-center justify-center">
-              <div className={`flex flex-col items-center ${step === 'shipping' || step === 'payment' || step === 'confirmation' ? 'text-pastel-pink' : 'text-muted-foreground'}`}>
-                <div className="w-8 h-8 rounded-full bg-pastel-pink text-white flex items-center justify-center mb-1">
-                  <MapPin size={16} />
-                </div>
-                <span className="text-xs">Shipping</span>
-              </div>
-              <div className={`w-20 h-0.5 ${step === 'payment' || step === 'confirmation' ? 'bg-pastel-pink' : 'bg-gray-200'}`}></div>
-              <div className={`flex flex-col items-center ${step === 'payment' || step === 'confirmation' ? 'text-pastel-pink' : 'text-muted-foreground'}`}>
-                <div className={`w-8 h-8 rounded-full ${step === 'payment' || step === 'confirmation' ? 'bg-pastel-pink text-white' : 'bg-gray-200 text-muted-foreground'} flex items-center justify-center mb-1`}>
-                  <CreditCard size={16} />
-                </div>
-                <span className="text-xs">Payment</span>
-              </div>
-              <div className={`w-20 h-0.5 ${step === 'confirmation' ? 'bg-pastel-pink' : 'bg-gray-200'}`}></div>
-              <div className={`flex flex-col items-center ${step === 'confirmation' ? 'text-pastel-pink' : 'text-muted-foreground'}`}>
-                <div className={`w-8 h-8 rounded-full ${step === 'confirmation' ? 'bg-pastel-pink text-white' : 'bg-gray-200 text-muted-foreground'} flex items-center justify-center mb-1`}>
-                  <Check size={16} />
-                </div>
-                <span className="text-xs">Confirmation</span>
-              </div>
-            </div>
-          </div>
+          <CheckoutHeader currentStep={step} />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
               <div className="bg-white rounded-xl pastel-shadow p-6">
                 {step === 'shipping' && (
-                  <>
-                    <h2 className="text-xl font-semibold mb-6">Shipping Information</h2>
-                    <Form {...form}>
-                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="firstName"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>First Name</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="First Name" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="lastName"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Last Name</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="Last Name" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="email"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Email Address</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="Email" type="email" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="phone"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Phone Number</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="Phone Number" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-
-                        <FormField
-                          control={form.control}
-                          name="address"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Address</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Street Address" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="city"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>City</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="City" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="state"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>State</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="State" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="zipCode"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>ZIP Code</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="ZIP Code" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                        
-                        <div className="flex justify-between pt-4">
-                          <Button type="button" variant="outline" onClick={goBack} className="flex items-center">
-                            <ArrowLeft size={16} className="mr-2" />
-                            Back to Cart
-                          </Button>
-                          <Button 
-                            type="submit" 
-                            variant="default"
-                            className="bg-[#f43f5e] text-white hover:bg-[#e11d48] font-semibold"
-                            disabled={isProcessing || !isShippingFormValid()}
-                          >
-                            {isProcessing ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Processing...
-                              </>
-                            ) : (
-                              'Continue to Payment'
-                            )}
-                          </Button>
-                        </div>
-                      </form>
-                    </Form>
-                  </>
+                  <ShippingForm
+                    form={form}
+                    isProcessing={isProcessing}
+                    onSubmit={onSubmit}
+                    goBack={goBack}
+                    isShippingFormValid={isShippingFormValid}
+                  />
                 )}
 
                 {step === 'payment' && (
-                  <>
-                    <h2 className="text-xl font-semibold mb-6">Payment Information</h2>
-                    <Form {...form}>
-                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <FormField
-                          control={form.control}
-                          name="cardNumber"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Card Number</FormLabel>
-                              <FormControl>
-                                <Input placeholder="XXXX XXXX XXXX XXXX" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="cardName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Name on Card</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Name on Card" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="expDate"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Expiration Date</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="MM/YY" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="cvv"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>CVV</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="XXX" type="password" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                        
-                        <div className="flex justify-between pt-4">
-                          <Button type="button" variant="outline" onClick={goBack} className="flex items-center">
-                            <ArrowLeft size={16} className="mr-2" />
-                            Back to Shipping
-                          </Button>
-                          <Button 
-                            type="submit" 
-                            variant="default"
-                            className="bg-[#f43f5e] text-white hover:bg-[#e11d48] font-semibold"
-                            disabled={isProcessing}
-                          >
-                            {isProcessing ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Processing...
-                              </>
-                            ) : (
-                              'Place Order'
-                            )}
-                          </Button>
-                        </div>
-                      </form>
-                    </Form>
-                  </>
+                  <PaymentForm
+                    form={form}
+                    isProcessing={isProcessing}
+                    onSubmit={onSubmit}
+                    goBack={goBack}
+                  />
                 )}
 
-                {step === 'confirmation' && (
-                  <div className="text-center py-8">
-                    <div className="h-16 w-16 bg-pastel-pink/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Check size={32} className="text-pastel-pink" />
-                    </div>
-                    <h2 className="text-2xl font-semibold mb-2">Order Confirmed!</h2>
-                    <p className="text-muted-foreground mb-6">
-                      Thank you for your purchase. Your order has been confirmed and will be shipped soon.
-                    </p>
-                    <p className="font-medium mb-8">Order #: {Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}</p>
-                    
-                    <Button onClick={() => navigate('/')} className="bg-[#f43f5e] text-white hover:bg-[#e11d48] font-semibold px-8">
-                      Continue Shopping
-                    </Button>
-                  </div>
-                )}
+                {step === 'confirmation' && <OrderConfirmation />}
               </div>
             </div>
             
             <div className="lg:col-span-1">
-              <div className="bg-white rounded-xl pastel-shadow p-6 sticky top-20">
-                <h2 className="text-xl font-semibold mb-6">Order Summary</h2>
-                
-                <div className="space-y-4 mb-6">
-                  {items.map((item) => (
-                    <div key={item.id} className="flex items-start space-x-4">
-                      <div className="w-16 h-16 rounded overflow-hidden flex-shrink-0">
-                        <img 
-                          src={item.image} 
-                          alt={item.name} 
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-grow">
-                        <h4 className="font-medium text-sm">{item.name}</h4>
-                        <div className="text-xs text-muted-foreground">
-                          <span>Size: {item.size}</span> · <span>Color: {item.color}</span>
-                        </div>
-                        <div className="flex justify-between items-center mt-1">
-                          <span className="text-xs">Qty: {item.quantity}</span>
-                          <span className="font-medium">${(item.price * item.quantity).toFixed(2)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                
-                <div className="border-t border-pastel-pink/10 pt-4 space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Subtotal</span>
-                    <span>${subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Shipping</span>
-                    <span>{shipping === 0 ? 'Free' : `$${shipping.toFixed(2)}`}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Tax</span>
-                    <span>${tax.toFixed(2)}</span>
-                  </div>
-                  <div className="border-t border-pastel-pink/10 pt-3 mt-2">
-                    <div className="flex justify-between font-semibold">
-                      <span>Total</span>
-                      <span className="text-primary-foreground">${total.toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <OrderSummary
+                items={items}
+                subtotal={subtotal}
+                shipping={shipping}
+                tax={tax}
+                total={total}
+              />
             </div>
           </div>
         </div>

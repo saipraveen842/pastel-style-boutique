@@ -22,23 +22,24 @@ export const paymentService = {
       console.log("Razorpay order created:", razorpayOrder);
 
       // Create payment record in our database
-      const { data: payment, error: paymentError } = await supabase.rpc(
-        'create_payment',
-        {
-          p_order_id: orderId,
-          p_razorpay_order_id: razorpayOrder.id,
-          p_amount: amount,
-          p_currency: 'INR',
-          p_status: 'pending'
-        }
-      );
+      const { data: payment, error: paymentError } = await supabase
+        .from('payments')
+        .insert([{
+          order_id: orderId,
+          razorpay_order_id: razorpayOrder.id,
+          amount: amount,
+          currency: 'INR',
+          status: 'pending'
+        }])
+        .select()
+        .single();
 
       if (paymentError) {
         console.error("Error creating payment record:", paymentError);
         throw paymentError;
       }
       
-      console.log("Payment record created:", payment);
+      console.log("Payment recor created:", payment);
 
       return {
         payment,
@@ -55,14 +56,14 @@ export const paymentService = {
       console.log("Updating payment status:", 
         { razorpayPaymentId, razorpayOrderId, status });
         
-      const { data, error } = await supabase.rpc(
-        'update_payment_status',
-        {
-          p_razorpay_payment_id: razorpayPaymentId,
-          p_razorpay_order_id: razorpayOrderId,
-          p_status: status
-        }
-      );
+      const { data, error } = await supabase
+        .from('payments')
+        .update({ 
+          razorpay_payment_id: razorpayPaymentId,
+          status: status,
+        })
+        .eq('razorpay_order_id', razorpayOrderId)
+        .select();
 
       if (error) {
         console.error("Error updating payment status:", error);
@@ -70,7 +71,7 @@ export const paymentService = {
       }
       
       console.log("Payment status updated successfully");
-      return true;
+      return data;
     } catch (error) {
       console.error('Error updating payment status:', error);
       throw error;
