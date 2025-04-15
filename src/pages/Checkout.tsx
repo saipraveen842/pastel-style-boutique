@@ -121,9 +121,9 @@ const Checkout = () => {
     return new Promise((resolve) => {
       const script = document.createElement('script');
       script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      document.body.appendChild(script);
       script.onload = () => resolve(true);
       script.onerror = () => resolve(false);
-      document.body.appendChild(script);
     });
   };
 
@@ -132,21 +132,24 @@ const Checkout = () => {
       setIsProcessing(true);
       console.log("Starting payment process...");
       
-      await initializeRazorpay();
+      const razorpayLoaded = await initializeRazorpay();
+      if (!razorpayLoaded) {
+        throw new Error("Razorpay SDK failed to load");
+      }
       
       const order = await orderService.createOrder(addressId!, items);
       console.log("Order created:", order);
 
       const res = await paymentService.createPayment(
         order.id,
-        total
+        Math.round(total * 100) // Convert to paise/cents and ensure it's an integer
       );
       console.log("Payment initialized:", res);
 
       const options = {
         key: "rzp_test_WyK93y9mvps7SN",
         amount: res.razorpayOrder.amount,
-        currency: res.razorpayOrder.currency,
+        currency: res.razorpayOrder.currency || "INR",
         name: "E-Commerce Store",
         description: "Order Payment",
         order_id: res.razorpayOrder.id,
@@ -211,6 +214,7 @@ const Checkout = () => {
     }
   };
 
+  // Initialize Razorpay on component mount
   useEffect(() => {
     initializeRazorpay();
   }, []);
@@ -232,51 +236,62 @@ const Checkout = () => {
 
   const onSubmit = async (data: FormValues) => {
     if (step === 'shipping') {
-      // Validate the shipping form fields
-      const isValid = await form.trigger(['firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state', 'zipCode']);
-      
-      if (!isValid) {
-        console.log("Form validation failed", form.formState.errors);
+      try {
+        // Validate the shipping form fields
+        const isValid = await form.trigger(['firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state', 'zipCode']);
+        
+        if (!isValid) {
+          console.log("Form validation failed", form.formState.errors);
+          toast({
+            title: "Please check your information",
+            description: "Some required fields are missing or invalid.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        // If user is logged in but no address id, create a new address
+        if (user && !addressId) {
+          try {
+            setIsProcessing(true);
+            const newAddress = await addressService.createAddress({
+              street: data.address,
+              city: data.city,
+              state: data.state,
+              zip_code: data.zipCode,
+              is_default: savedAddresses.length === 0
+            });
+            
+            if (newAddress) {
+              setAddressId(newAddress.id);
+              toast({
+                title: 'Address saved',
+                description: 'Your address has been saved for future use.',
+              });
+            }
+          } catch (error) {
+            console.error('Error saving address:', error);
+            toast({
+              title: 'Error',
+              description: 'Failed to save your address, but you can continue checkout.',
+              variant: 'destructive',
+            });
+          } finally {
+            setIsProcessing(false);
+          }
+        }
+        
+        console.log("Moving to payment step");
+        setStep('payment');
+      } catch (error) {
+        console.error('Error in shipping step:', error);
         toast({
-          title: "Please check your information",
-          description: "Some required fields are missing or invalid.",
+          title: "Error",
+          description: "There was an error processing your shipping information.",
           variant: "destructive",
         });
-        return;
+        setIsProcessing(false);
       }
-      
-      if (user && !addressId) {
-        try {
-          setIsProcessing(true);
-          const newAddress = await addressService.createAddress({
-            street: data.address,
-            city: data.city,
-            state: data.state,
-            zip_code: data.zipCode,
-            is_default: savedAddresses.length === 0
-          });
-          
-          if (newAddress) {
-            setAddressId(newAddress.id);
-            toast({
-              title: 'Address saved',
-              description: 'Your address has been saved for future use.',
-            });
-          }
-        } catch (error) {
-          console.error('Error saving address:', error);
-          toast({
-            title: 'Error',
-            description: 'Failed to save your address, but you can continue checkout.',
-            variant: 'destructive',
-          });
-        } finally {
-          setIsProcessing(false);
-        }
-      }
-      
-      console.log("Moving to payment step");
-      setStep('payment');
     } else if (step === 'payment') {
       try {
         console.log("Payment step submission, calling handlePayment()");
@@ -288,6 +303,7 @@ const Checkout = () => {
           description: "There was an error processing your order. Please try again.",
           variant: "destructive",
         });
+        setIsProcessing(false);
       }
     }
   };
@@ -331,6 +347,7 @@ const Checkout = () => {
             </div>
           )}
           
+          {/* Progress indicator */}
           <div className="mb-8">
             <div className="flex items-center justify-center">
               <div className={`flex flex-col items-center ${step === 'shipping' || step === 'payment' || step === 'confirmation' ? 'text-pastel-pink' : 'text-muted-foreground'}`}>
@@ -485,7 +502,8 @@ const Checkout = () => {
                           </Button>
                           <Button 
                             type="submit" 
-                            className="bg-primary text-white hover:bg-primary/90"
+                            variant="default"
+                            className="bg-[#f43f5e] text-white hover:bg-[#e11d48] font-semibold"
                             disabled={isProcessing || !isShippingFormValid()}
                           >
                             {isProcessing ? (
@@ -572,7 +590,8 @@ const Checkout = () => {
                           </Button>
                           <Button 
                             type="submit" 
-                            className="bg-primary text-white hover:bg-primary/90"
+                            variant="default"
+                            className="bg-[#f43f5e] text-white hover:bg-[#e11d48] font-semibold"
                             disabled={isProcessing}
                           >
                             {isProcessing ? (
@@ -601,7 +620,7 @@ const Checkout = () => {
                     </p>
                     <p className="font-medium mb-8">Order #: {Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}</p>
                     
-                    <Button onClick={() => navigate('/')} className="bg-primary text-white hover:bg-primary/90 px-8">
+                    <Button onClick={() => navigate('/')} className="bg-[#f43f5e] text-white hover:bg-[#e11d48] font-semibold px-8">
                       Continue Shopping
                     </Button>
                   </div>
