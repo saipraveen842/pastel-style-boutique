@@ -71,6 +71,21 @@ const Checkout = () => {
     },
   });
 
+  // Set default values and validate shipping form when needed
+  useEffect(() => {
+    if (step === 'shipping') {
+      // Pre-fill form fields based on user data if available
+      if (user?.email) {
+        form.setValue('email', user.email);
+      }
+      
+      // Mark fields as touched to show validation errors
+      Object.keys(form.formState.touchedFields).forEach((fieldName) => {
+        form.trigger(fieldName as keyof FormValues);
+      });
+    }
+  }, [step, user, form]);
+
   useEffect(() => {
     const loadAddresses = async () => {
       try {
@@ -86,6 +101,9 @@ const Checkout = () => {
           form.setValue('city', defaultAddress.city);
           form.setValue('state', defaultAddress.state);
           form.setValue('zipCode', defaultAddress.zip_code);
+
+          // Trigger validation after setting values
+          form.trigger(['address', 'city', 'state', 'zipCode']);
         }
       } catch (error) {
         console.error('Error loading addresses:', error);
@@ -197,8 +215,36 @@ const Checkout = () => {
     initializeRazorpay();
   }, []);
 
+  // Check form validity for shipping step
+  const isShippingFormValid = () => {
+    const { firstName, lastName, email, phone, address, city, state, zipCode } = form.getValues();
+    return (
+      firstName.length >= 2 &&
+      lastName.length >= 2 &&
+      email.includes('@') &&
+      phone.length >= 10 &&
+      address.length >= 5 &&
+      city.length >= 2 &&
+      state.length >= 2 &&
+      zipCode.length >= 5
+    );
+  };
+
   const onSubmit = async (data: FormValues) => {
     if (step === 'shipping') {
+      // Validate the shipping form fields
+      const isValid = await form.trigger(['firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state', 'zipCode']);
+      
+      if (!isValid) {
+        console.log("Form validation failed", form.formState.errors);
+        toast({
+          title: "Please check your information",
+          description: "Some required fields are missing or invalid.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       if (user && !addressId) {
         try {
           setIsProcessing(true);
@@ -229,6 +275,7 @@ const Checkout = () => {
         }
       }
       
+      console.log("Moving to payment step");
       setStep('payment');
     } else if (step === 'payment') {
       try {
@@ -439,7 +486,7 @@ const Checkout = () => {
                           <Button 
                             type="submit" 
                             className="bg-primary text-white hover:bg-primary/90"
-                            disabled={isProcessing || !form.formState.isValid}
+                            disabled={isProcessing || !isShippingFormValid()}
                           >
                             {isProcessing ? (
                               <>
@@ -526,7 +573,7 @@ const Checkout = () => {
                           <Button 
                             type="submit" 
                             className="bg-primary text-white hover:bg-primary/90"
-                            disabled={isProcessing || !form.formState.isValid}
+                            disabled={isProcessing}
                           >
                             {isProcessing ? (
                               <>

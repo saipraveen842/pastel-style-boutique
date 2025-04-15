@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { Payment, SupabaseFunctions } from "@/types/supabase";
+import { Payment } from "@/types/supabase";
 
 export const paymentService = {
   async createPayment(orderId: string, amount: number) {
@@ -22,7 +22,7 @@ export const paymentService = {
       console.log("Razorpay order created:", razorpayOrder);
 
       // Create payment record in our database
-      const { data: payment, error: paymentError } = await supabase.rpc<Payment>(
+      const { data: payment, error: paymentError } = await supabase.rpc(
         'create_payment',
         {
           p_order_id: orderId,
@@ -55,7 +55,7 @@ export const paymentService = {
       console.log("Updating payment status:", 
         { razorpayPaymentId, razorpayOrderId, status });
         
-      const { data, error } = await supabase.rpc<boolean>(
+      const { data, error } = await supabase.rpc(
         'update_payment_status',
         {
           p_razorpay_payment_id: razorpayPaymentId,

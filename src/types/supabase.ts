@@ -72,21 +72,4 @@ export interface Payment {
   updated_at: string;
 }
 
-// Add function declarations to fix type errors
-export interface SupabaseFunctions {
-  create_payment: (args: {
-    p_order_id: string;
-    p_razorpay_order_id: string;
-    p_amount: number;
-    p_currency: string;
-    p_status: string;
-  }) => Payment;
-  
-  update_payment_status: (args: {
-    p_razorpay_payment_id: string;
-    p_razorpay_order_id: string;
-    p_status: string;
-  }) => boolean;
-  
-  delete_user: () => void;
-}
+// Add function declarations to fix type errors - removed SupabaseFunctions interface
