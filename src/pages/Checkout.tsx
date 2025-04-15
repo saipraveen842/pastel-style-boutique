@@ -18,7 +18,6 @@ import { Address } from '@/types/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { paymentService } from '@/services/paymentService';
 
-// Form validation schema
 const formSchema = z.object({
   firstName: z.string().min(2, { message: "First name is required" }),
   lastName: z.string().min(2, { message: "Last name is required" }),
@@ -47,13 +46,11 @@ const Checkout = () => {
   const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
 
-  // Calculate order summary
   const subtotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const shipping = subtotal > 100 ? 0 : 5.99;
   const tax = subtotal * 0.07; // 7% tax
   const total = subtotal + shipping + tax;
 
-  // Initialize form
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -72,7 +69,6 @@ const Checkout = () => {
     },
   });
 
-  // Load user's saved addresses
   useEffect(() => {
     const loadAddresses = async () => {
       try {
@@ -80,12 +76,10 @@ const Checkout = () => {
         const addresses = await addressService.getUserAddresses();
         setSavedAddresses(addresses);
         
-        // If there's a default address, use it
         const defaultAddress = addresses.find(addr => addr.is_default);
         if (defaultAddress) {
           setAddressId(defaultAddress.id);
           
-          // Pre-fill form with default address
           form.setValue('address', defaultAddress.street);
           form.setValue('city', defaultAddress.city);
           form.setValue('state', defaultAddress.state);
@@ -115,23 +109,27 @@ const Checkout = () => {
 
   const handlePayment = async () => {
     try {
-      // Create the order in Supabase
+      console.log("Starting payment process...");
+      
       const order = await orderService.createOrder(addressId!, items);
+      console.log("Order created:", order);
 
       const res = await paymentService.createPayment(
         order.id,
         total
       );
+      console.log("Payment initialized:", res);
 
       const options = {
-        key: "rzp_test_WyK93y9mvps7SN", // Replace with your Razorpay key ID
+        key: "rzp_test_WyK93y9mvps7SN",
         amount: res.razorpayOrder.amount,
         currency: res.razorpayOrder.currency,
-        name: "Your Store Name",
+        name: "E-Commerce Store",
         description: "Order Payment",
         order_id: res.razorpayOrder.id,
-        handler: async (response: any) => {
+        handler: async function(response: any) {
           try {
+            console.log("Payment successful, response:", response);
             await paymentService.updatePaymentStatus(
               response.razorpay_payment_id,
               response.razorpay_order_id,
@@ -143,7 +141,6 @@ const Checkout = () => {
               description: "Your order has been placed successfully!",
             });
             
-            // Clear cart and redirect to confirmation
             clearCart();
             setStep('confirmation');
           } catch (error) {
@@ -158,14 +155,25 @@ const Checkout = () => {
         prefill: {
           name: `${form.getValues('firstName')} ${form.getValues('lastName')}`,
           email: form.getValues('email'),
+          contact: form.getValues('phone')
         },
         theme: {
           color: "#f43f5e",
         },
+        modal: {
+          ondismiss: function() {
+            console.log("Payment dismissed");
+            toast({
+              title: "Payment Cancelled",
+              description: "You have cancelled the payment. Your order is still pending.",
+            });
+          }
+        }
       };
 
-      const razorpay = new (window as any).Razorpay(options);
-      razorpay.open();
+      console.log("Initializing Razorpay with options:", options);
+      const razorpayInstance = new (window as any).Razorpay(options);
+      razorpayInstance.open();
     } catch (error) {
       console.error('Error initializing payment:', error);
       toast({
@@ -176,15 +184,12 @@ const Checkout = () => {
     }
   };
 
-  // Add useEffect to load Razorpay script
   useEffect(() => {
     initializeRazorpay();
   }, []);
 
-  // Handle form submission
   const onSubmit = async (data: FormValues) => {
     if (step === 'shipping') {
-      // If user is logged in and we don't have an addressId yet, save the address
       if (user && !addressId) {
         try {
           const newAddress = await addressService.createAddress({
@@ -192,7 +197,7 @@ const Checkout = () => {
             city: data.city,
             state: data.state,
             zip_code: data.zipCode,
-            is_default: savedAddresses.length === 0 // Make it default if it's the first address
+            is_default: savedAddresses.length === 0
           });
           
           if (newAddress) {
@@ -215,7 +220,7 @@ const Checkout = () => {
       setStep('payment');
     } else if (step === 'payment') {
       try {
-        // Instead of directly creating the order, first handle the payment
+        console.log("Payment step submission, calling handlePayment()");
         await handlePayment();
       } catch (error) {
         console.error('Error during checkout:', error);
@@ -228,7 +233,6 @@ const Checkout = () => {
     }
   };
 
-  // Go back to previous step
   const goBack = () => {
     if (step === 'payment') {
       setStep('shipping');
@@ -244,14 +248,12 @@ const Checkout = () => {
       <Navbar />
       <main className="flex-grow py-12 bg-background">
         <div className="container mx-auto px-4">
-          {/* Back button */}
           {step !== 'confirmation' && (
             <div className="mb-4">
               <BackButton />
             </div>
           )}
           
-          {/* Checkout progress */}
           <div className="mb-8">
             <div className="flex items-center justify-center">
               <div className={`flex flex-col items-center ${step === 'shipping' || step === 'payment' || step === 'confirmation' ? 'text-pastel-pink' : 'text-muted-foreground'}`}>
@@ -278,7 +280,6 @@ const Checkout = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Form */}
             <div className="lg:col-span-2">
               <div className="bg-white rounded-xl pastel-shadow p-6">
                 {step === 'shipping' && (
@@ -509,7 +510,6 @@ const Checkout = () => {
               </div>
             </div>
             
-            {/* Order Summary */}
             <div className="lg:col-span-1">
               <div className="bg-white rounded-xl pastel-shadow p-6 sticky top-20">
                 <h2 className="text-xl font-semibold mb-6">Order Summary</h2>

@@ -16,11 +16,14 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Received request to create Razorpay order')
     const { amount, currency = 'INR', orderId } = await req.json()
 
     if (!amount || !orderId) {
       throw new Error('Amount and orderId are required')
     }
+
+    console.log(`Creating order for amount: ${amount}, currency: ${currency}, orderId: ${orderId}`)
 
     // Initialize Razorpay
     const razorpay = new Razorpay({

@@ -58,3 +58,16 @@ export interface OrderItem {
   color: string | null;
   created_at: string;
 }
+
+export interface Payment {
+  id: string;
+  razorpay_order_id: string;
+  razorpay_payment_id: string | null;
+  order_id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  payment_method: string | null;
+  created_at: string;
+  updated_at: string;
+}
